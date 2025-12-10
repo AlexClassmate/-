@@ -1,89 +1,123 @@
 import React, { useState } from 'react';
-import { Network, BookOpen, Code, Trophy, Activity, Terminal } from 'lucide-react';
+import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight } from 'lucide-react';
 import Visualizer from './components/Visualizer';
 import StorySection from './components/StorySection';
 import QuizSection from './components/QuizSection';
 import CodeLab from './components/CodeLab';
 import GuidedCoding from './components/GuidedCoding';
+import { CourseLevel } from './types';
 
 type Tab = 'story' | 'visualizer' | 'code' | 'quiz' | 'guided';
 
 const App: React.FC = () => {
+  const [currentLevel, setCurrentLevel] = useState<CourseLevel>('basic');
   const [activeTab, setActiveTab] = useState<Tab>('story');
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'story': return <StorySection />;
-      case 'visualizer': return <Visualizer />;
-      case 'guided': return <GuidedCoding />;
-      case 'code': return <CodeLab />;
-      case 'quiz': return <QuizSection />;
-      default: return <StorySection />;
+      case 'story': return <StorySection level={currentLevel} />;
+      case 'visualizer': return <Visualizer level={currentLevel} />;
+      case 'guided': return <GuidedCoding level={currentLevel} />;
+      case 'code': return <CodeLab level={currentLevel} />;
+      case 'quiz': return <QuizSection level={currentLevel} />;
+      default: return <StorySection level={currentLevel} />;
     }
   };
 
+  const NavItem = ({ tab, label, icon: Icon }: { tab: Tab, label: string, icon: any }) => (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${
+        activeTab === tab 
+          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
+          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-dark text-gray-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="bg-dark-lighter border-b border-gray-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/20 p-2 rounded-lg">
-              <Network className="w-6 h-6 text-primary" />
-            </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent hidden sm:block">
-              SegTree Master
-            </h1>
+    <div className="min-h-screen bg-dark text-gray-100 flex font-sans overflow-hidden">
+      
+      {/* Sidebar */}
+      <aside className="w-64 bg-dark-lighter border-r border-gray-800 flex flex-col shrink-0 h-screen">
+        <div className="p-6 flex items-center gap-3 border-b border-gray-800">
+          <div className="bg-primary/20 p-2 rounded-lg">
+            <Network className="w-6 h-6 text-primary" />
           </div>
-          
-          <nav className="flex gap-1 bg-gray-900 p-1 rounded-lg overflow-x-auto">
-            <button 
-              onClick={() => setActiveTab('story')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md transition-all text-sm font-medium whitespace-nowrap ${
-                activeTab === 'story' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" /> <span className="hidden sm:inline">教程</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('visualizer')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md transition-all text-sm font-medium whitespace-nowrap ${
-                activeTab === 'visualizer' ? 'bg-primary text-white shadow' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Activity className="w-4 h-4" /> <span className="hidden sm:inline">演示</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('guided')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md transition-all text-sm font-medium whitespace-nowrap ${
-                activeTab === 'guided' ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Terminal className="w-4 h-4" /> <span className="hidden sm:inline">实战</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('code')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md transition-all text-sm font-medium whitespace-nowrap ${
-                activeTab === 'code' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Code className="w-4 h-4" /> <span className="hidden sm:inline">代码</span>
-            </button>
-             <button 
-              onClick={() => setActiveTab('quiz')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md transition-all text-sm font-medium whitespace-nowrap ${
-                activeTab === 'quiz' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Trophy className="w-4 h-4" /> <span className="hidden sm:inline">闯关</span>
-            </button>
-          </nav>
+          <h1 className="text-lg font-bold text-white tracking-tight">SegTree Master</h1>
         </div>
-      </header>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Basic Course */}
+          <div>
+            <button 
+              onClick={() => { setCurrentLevel('basic'); setActiveTab('story'); }}
+              className={`w-full text-left px-3 py-2 rounded mb-2 flex items-center justify-between group transition ${
+                currentLevel === 'basic' ? 'bg-primary text-white' : 'hover:bg-gray-800 text-gray-400'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-bold">
+                 <Box className="w-4 h-4" /> 基础线段树
+              </div>
+              {currentLevel === 'basic' && <ChevronRight className="w-4 h-4" />}
+            </button>
+            
+            {currentLevel === 'basic' && (
+              <div className="space-y-1 pl-2 animate-fade-in">
+                <NavItem tab="story" label="教程：包工头的故事" icon={BookOpen} />
+                <NavItem tab="visualizer" label="演示：点更新 & 查询" icon={Activity} />
+                <NavItem tab="guided" label="实战：手写基础版" icon={Terminal} />
+                <NavItem tab="code" label="代码：Standard" icon={Code} />
+                <NavItem tab="quiz" label="闯关：基础测试" icon={Trophy} />
+              </div>
+            )}
+          </div>
+
+          {/* Advanced Course */}
+          <div>
+            <button 
+              onClick={() => { setCurrentLevel('advanced'); setActiveTab('story'); }}
+              className={`w-full text-left px-3 py-2 rounded mb-2 flex items-center justify-between group transition ${
+                currentLevel === 'advanced' ? 'bg-accent text-white' : 'hover:bg-gray-800 text-gray-400'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-bold">
+                 <Layers className="w-4 h-4" /> 线段树进阶
+              </div>
+              {currentLevel === 'advanced' && <ChevronRight className="w-4 h-4" />}
+            </button>
+            
+            {currentLevel === 'advanced' && (
+              <div className="space-y-1 pl-2 animate-fade-in">
+                <NavItem tab="story" label="教程：懒惰标记" icon={BookOpen} />
+                <NavItem tab="visualizer" label="演示：区间修改" icon={Activity} />
+                <NavItem tab="guided" label="实战：手写 Lazy" icon={Terminal} />
+                <NavItem tab="code" label="代码：Lazy Prop" icon={Code} />
+                <NavItem tab="quiz" label="闯关：进阶测试" icon={Trophy} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-800 text-center">
+           <p className="text-xs text-gray-500">v2.0 Interactive Learning</p>
+        </div>
+      </aside>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 overflow-hidden h-[calc(100vh-64px)]">
-        {renderContent()}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        <header className="h-16 border-b border-gray-800 flex items-center px-8 bg-dark/50 backdrop-blur-md sticky top-0 z-10">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+             <span className={`w-2 h-6 rounded-full ${currentLevel === 'basic' ? 'bg-primary' : 'bg-accent'}`}></span>
+             {currentLevel === 'basic' ? '基础篇：单点修改与区间查询' : '进阶篇：区间修改与懒惰标记'}
+          </h2>
+        </header>
+        <div className="flex-1 overflow-auto p-6 lg:p-8">
+           {renderContent()}
+        </div>
       </main>
     </div>
   );

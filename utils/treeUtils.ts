@@ -6,22 +6,17 @@ const CANVAS_HEIGHT = 400;
 const START_Y = 50;
 const LEVEL_HEIGHT = 80;
 
-/**
- * Calculates the positions of nodes for visualization.
- * We are using a fixed array size of 8 for the demo to keep visualization clean.
- */
 export const generateTreeLayout = (arr: number[]): TreeNode[] => {
   const nodes: TreeNode[] = [];
   const n = arr.length;
 
   const build = (id: number, l: number, r: number, depth: number, x: number, rangeWidth: number) => {
-    // Determine Y position based on depth
     const y = START_Y + depth * LEVEL_HEIGHT;
 
-    // Create current node
     const node: TreeNode = {
       id,
-      value: 0, // Placeholder, calculated later
+      value: 0,
+      lazy: 0, // Initialize lazy tag
       left: l,
       right: r,
       x,
@@ -36,8 +31,6 @@ export const generateTreeLayout = (arr: number[]): TreeNode[] => {
     }
 
     const mid = Math.floor((l + r) / 2);
-    // Recursively build children
-    // Adjust X spacing based on depth to prevent overlap
     const offset = rangeWidth / 4; 
     
     const leftVal = build(id * 2, l, mid, depth + 1, x - offset, rangeWidth / 2);
@@ -48,19 +41,53 @@ export const generateTreeLayout = (arr: number[]): TreeNode[] => {
   };
 
   build(1, 0, n - 1, 0, CANVAS_WIDTH / 2, CANVAS_WIDTH);
-  
-  // Sort by ID for easier array-like access simulation
   return nodes.sort((a, b) => a.id - b.id);
 };
 
-// Simulation helper to generate steps for animation
+// Helper: Apply lazy to children (Simulation only)
+const simulatePushDown = (nodeId: number, nodes: TreeNode[], steps: LogStep[]) => {
+  const nodeIndex = nodes.findIndex(n => n.id === nodeId);
+  if (nodeIndex === -1) return;
+  const node = nodes[nodeIndex];
+
+  if (node.lazy !== 0 && node.left !== node.right) {
+    const mid = Math.floor((node.left + node.right) / 2);
+    const leftChildIdx = nodes.findIndex(n => n.id === nodeId * 2);
+    const rightChildIdx = nodes.findIndex(n => n.id === nodeId * 2 + 1);
+
+    if (leftChildIdx !== -1) {
+      nodes[leftChildIdx].lazy += node.lazy;
+      nodes[leftChildIdx].value += node.lazy * (mid - node.left + 1);
+    }
+    if (rightChildIdx !== -1) {
+      nodes[rightChildIdx].lazy += node.lazy;
+      nodes[rightChildIdx].value += node.lazy * (node.right - mid);
+    }
+    
+    steps.push({
+      nodeId,
+      message: `Push Down: 懒标记 ${node.lazy} 下传给子节点`,
+      highlight: 'pushdown'
+    });
+
+    node.lazy = 0; // Clear tag
+  }
+};
+
 export const simulateQuery = (
   nodes: TreeNode[], 
   queryL: number, 
-  queryR: number
+  queryR: number,
+  useLazy: boolean = false
 ): LogStep[] => {
   const steps: LogStep[] = [];
-
+  // Use a copy to simulate pushdowns without affecting the main visual state immediately 
+  // (In a real app, query might modify state if it triggers pushdown, here we just show logs usually, 
+  // but for visualization consistency we might need to be careful. For this demo, we won't mutate the *input* nodes permanently in query)
+  
+  // NOTE: To properly visualize query with lazy, we conceptually need to know values. 
+  // Since we don't return newNodes from query, we just simulate traversal logic.
+  
   const query = (nodeId: number, l: number, r: number, ql: number, qr: number) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return 0;
@@ -71,25 +98,29 @@ export const simulateQuery = (
       highlight: 'visiting'
     });
 
-    // Case 1: Range completely outside
-    if (l > qr || r < ql) {
-      return 0;
-    }
+    if (l > qr || r < ql) return 0;
 
-    // Case 2: Range completely inside
     if (l >= ql && r <= qr) {
       steps.push({
         nodeId,
-        message: `节点 [${l}, ${r}] 完全包含在查询区间 [${ql}, ${qr}] 内，返回 ${node.value}`,
+        message: `完全包含，返回 ${node.value}`,
         highlight: 'found'
       });
       return node.value;
     }
 
-    // Case 3: Partial overlap
+    // Lazy Pushdown Check
+    if (useLazy && node.lazy !== 0) {
+       steps.push({
+        nodeId,
+        message: `查询路径遇到懒标记 ${node.lazy}，虽然逻辑上需要下传，但查询函数通常在回溯时合并值。此处为展示逻辑。`,
+        highlight: 'pushdown'
+      });
+    }
+
     steps.push({
       nodeId,
-      message: `分裂：查询左子树和右子树`,
+      message: `分裂查询左右子树`,
       highlight: 'partial'
     });
 
@@ -108,43 +139,30 @@ export const simulateQuery = (
   return steps;
 };
 
-export const simulateUpdate = (
+export const simulatePointUpdate = (
   nodes: TreeNode[],
   index: number,
   newValue: number
 ): { steps: LogStep[], newNodes: TreeNode[] } => {
   const steps: LogStep[] = [];
-  // Deep copy nodes to avoid mutating state directly during simulation
   const nextNodes = JSON.parse(JSON.stringify(nodes));
 
   const update = (nodeId: number, l: number, r: number, idx: number, val: number) => {
     const nodeIndex = nextNodes.findIndex((n: TreeNode) => n.id === nodeId);
     if (nodeIndex === -1) return;
 
-    steps.push({
-      nodeId,
-      message: `访问节点 [${l}, ${r}]`,
-      highlight: 'visiting'
-    });
+    steps.push({ nodeId, message: `访问节点 [${l}, ${r}]`, highlight: 'visiting' });
 
     if (l === r) {
       nextNodes[nodeIndex].value = val;
-      steps.push({
-        nodeId,
-        message: `叶子节点 [${l}, ${l}] 更新为 ${val}`,
-        highlight: 'found'
-      });
+      steps.push({ nodeId, message: `叶子节点更新为 ${val}`, highlight: 'found' });
       return;
     }
 
     const mid = Math.floor((l + r) / 2);
-    if (idx <= mid) {
-      update(nodeId * 2, l, mid, idx, val);
-    } else {
-      update(nodeId * 2 + 1, mid + 1, r, idx, val);
-    }
+    if (idx <= mid) update(nodeId * 2, l, mid, idx, val);
+    else update(nodeId * 2 + 1, mid + 1, r, idx, val);
 
-    // Push up
     const leftChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2);
     const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
     
@@ -152,16 +170,68 @@ export const simulateUpdate = (
       nextNodes[nodeIndex].value = leftChild.value + rightChild.value;
       steps.push({
         nodeId,
-        message: `Push Up: 更新本节点值为 ${nextNodes[nodeIndex].value} (左:${leftChild.value} + 右:${rightChild.value})`,
+        message: `Push Up: 更新和为 ${nextNodes[nodeIndex].value}`,
         highlight: 'updating'
       });
     }
   };
 
   const root = nextNodes.find((n: TreeNode) => n.id === 1);
-  if (root) {
-    update(1, root.left, root.right, index, newValue);
-  }
+  if (root) update(1, root.left, root.right, index, newValue);
+
+  return { steps, newNodes: nextNodes };
+};
+
+export const simulateRangeUpdate = (
+  nodes: TreeNode[],
+  L: number,
+  R: number,
+  val: number
+): { steps: LogStep[], newNodes: TreeNode[] } => {
+  const steps: LogStep[] = [];
+  const nextNodes = JSON.parse(JSON.stringify(nodes));
+
+  const updateRange = (nodeId: number, start: number, end: number, l: number, r: number, v: number) => {
+    const nodeIndex = nextNodes.findIndex((n: TreeNode) => n.id === nodeId);
+    if (nodeIndex === -1) return;
+    const node = nextNodes[nodeIndex];
+
+    steps.push({ nodeId, message: `访问节点 [${start}, ${end}]`, highlight: 'visiting' });
+
+    // Case 1: Fully within range
+    if (l <= start && end <= r) {
+      node.value += v * (end - start + 1);
+      node.lazy += v;
+      steps.push({
+        nodeId,
+        message: `区间完全包含。打上懒标记 +${v}，更新当前值为 ${node.value}`,
+        highlight: 'found'
+      });
+      return;
+    }
+
+    // Case 2: Partial overlap, Push Down first
+    simulatePushDown(nodeId, nextNodes, steps);
+
+    const mid = Math.floor((start + end) / 2);
+    if (l <= mid) updateRange(nodeId * 2, start, mid, l, r, v);
+    if (r > mid) updateRange(nodeId * 2 + 1, mid + 1, end, l, r, v);
+
+    // Push Up
+    const leftChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2);
+    const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
+    if (leftChild && rightChild) {
+       node.value = leftChild.value + rightChild.value;
+       steps.push({
+        nodeId,
+        message: `Push Up: 更新本节点值为 ${node.value}`,
+        highlight: 'updating'
+      });
+    }
+  };
+
+  const root = nextNodes.find((n: TreeNode) => n.id === 1);
+  if (root) updateRange(1, root.left, root.right, L, R, val);
 
   return { steps, newNodes: nextNodes };
 };
