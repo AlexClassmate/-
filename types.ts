@@ -1,4 +1,4 @@
-export type CourseLevel = 'basic' | 'advanced';
+export type CourseLevel = 'basic' | 'advanced' | 'expert';
 
 export interface TreeNode {
   id: number;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Users, Package, StickyNote, Zap } from 'lucide-react';
+import { BookOpen, Users, Package, StickyNote, Zap, TrendingUp, BarChart2 } from 'lucide-react';
 import { CourseLevel } from '../types';
 
 interface Props {
@@ -7,6 +7,55 @@ interface Props {
 }
 
 const StorySection: React.FC<Props> = ({ level }) => {
+  if (level === 'expert') {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+        <div className="bg-dark-lighter p-6 rounded-xl border border-gray-700 shadow-lg">
+          <h2 className="text-2xl font-bold text-purple-400 mb-4 flex items-center gap-2">
+             <TrendingUp /> 高阶篇：谁是单挑王 (RMQ)
+          </h2>
+          <div className="space-y-4 text-gray-300 leading-relaxed">
+            <p>
+              包工头最近很烦。老板不再关心“一共搬了多少砖”（求和），而是开始问：“在第 [L, R] 号工人里，谁搬得<strong>最多</strong>？”
+            </p>
+            <p>
+              这就是传说中的 <strong>RMQ (Range Maximum/Minimum Query)</strong> 问题。
+            </p>
+            <div className="bg-purple-900/20 border-l-4 border-purple-500 p-4 my-4">
+              <h4 className="font-bold text-purple-200 mb-1">思维转变：从加法到PK</h4>
+              <p className="text-sm">
+                以前我们是把左右下属的业绩加起来 (Sum)。现在不同了，经理要组织“比武招亲”。
+                <br/>
+                <strong>Push Up 逻辑</strong>：<code>tree[node] = max(tree[left], tree[right])</code>。
+                <br/>
+                经理只记录手下最强的那个人搬了多少砖。
+              </p>
+            </div>
+            <p>
+              虽然逻辑变了，但线段树的骨架完全没变！这再次证明了线段树是一个通用的区间管理框架，只要满足“结合律”（max, min, sum, gcd 等），都可以往里装。
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-dark-lighter p-6 rounded-xl border border-gray-700">
+             <h3 className="text-lg font-bold text-pink-400 mb-3 flex items-center gap-2">
+               <BarChart2 /> 应用场景
+             </h3>
+             <p className="text-sm text-gray-400">
+               RMQ 广泛应用于：
+               <ul className="list-disc pl-5 mt-1 space-y-1">
+                 <li>股票分析：过去30天最高股价是多少？</li>
+                 <li>游戏排名：这个分段里谁的战力最高？</li>
+                 <li>甚至是求区间最大公约数 (GCD)。</li>
+               </ul>
+             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (level === 'advanced') {
     return (
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
@@ -45,14 +94,6 @@ const StorySection: React.FC<Props> = ({ level }) => {
              <p className="text-sm text-gray-400">
                下放标记的过程。当访问到一个有 Tag 的节点时，必须先把 Tag 给左、右孩子加上，并更新孩子的值，然后把自己的 Tag 清零。
                这保证了任何时候访问到的数据都是最新的。
-             </p>
-          </div>
-          <div className="bg-dark-lighter p-6 rounded-xl border border-gray-700">
-             <h3 className="text-lg font-bold text-secondary mb-3 flex items-center gap-2">
-               <Package /> 区间最值 (RMQ)
-             </h3>
-             <p className="text-sm text-gray-400">
-               除了求和，线段树也可以维护最大值/最小值。原理一样：Push Up 时取 <code>max(left, right)</code>，但注意懒标记的处理逻辑会有所不同（比如区间赋值 vs 区间增加）。
              </p>
           </div>
         </div>

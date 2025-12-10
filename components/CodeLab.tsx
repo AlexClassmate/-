@@ -104,9 +104,69 @@ int query(int node, int start, int end, int L, int R) {
 }
 `;
 
+const EXPERT_CODE = `
+#include <iostream>
+#include <algorithm> // max, min
+using namespace std;
+
+const int MAXN = 100005;
+const int INF = 2e9;
+int arr[MAXN];
+int tree[MAXN * 4];
+
+// 核心区别：Push Up 逻辑变为求 Max
+void push_up(int node) {
+    tree[node] = max(tree[node * 2], tree[node * 2 + 1]);
+}
+
+void build(int node, int start, int end) {
+    if (start == end) {
+        tree[node] = arr[start];
+    } else {
+        int mid = (start + end) / 2;
+        build(node * 2, start, mid);
+        build(node * 2 + 1, mid + 1, end);
+        push_up(node); // max logic
+    }
+}
+
+// 单点修改 (Max)
+void update(int node, int start, int end, int idx, int val) {
+    if (start == end) {
+        tree[node] = val;
+        arr[idx] = val;
+    } else {
+        int mid = (start + end) / 2;
+        if (idx <= mid) update(node * 2, start, mid, idx, val);
+        else update(node * 2 + 1, mid + 1, end, idx, val);
+        push_up(node); // max logic
+    }
+}
+
+// 区间最大值查询 (RMQ)
+int query(int node, int start, int end, int L, int R) {
+    // 越界返回极小值，不影响 max 结果
+    if (R < start || L > end) return -INF;
+    
+    if (L <= start && end <= R) return tree[node];
+    
+    int mid = (start + end) / 2;
+    return max(query(node * 2, start, mid, L, R),
+               query(node * 2 + 1, mid + 1, end, L, R));
+}
+`;
+
 const CodeLab: React.FC<Props> = ({ level }) => {
-  const code = level === 'basic' ? BASIC_CODE : ADVANCED_CODE;
-  const filename = level === 'basic' ? 'segment_tree_basic.cpp' : 'segment_tree_lazy.cpp';
+  let code = BASIC_CODE;
+  let filename = 'segment_tree_basic.cpp';
+
+  if (level === 'advanced') {
+    code = ADVANCED_CODE;
+    filename = 'segment_tree_lazy.cpp';
+  } else if (level === 'expert') {
+    code = EXPERT_CODE;
+    filename = 'segment_tree_rmq.cpp';
+  }
 
   return (
     <div className="max-w-5xl mx-auto h-full flex flex-col animate-fade-in">
@@ -134,9 +194,9 @@ const CodeLab: React.FC<Props> = ({ level }) => {
                       .replace(/</g, '&lt;')
                       .replace(/>/g, '&gt;')
                       .replace(/\/\/.*/g, '<span class="text-gray-500 italic">$&</span>')
-                      .replace(/\b(int|void|using|namespace|return|if|else|const|for|while)\b/g, '<span class="text-purple-400 font-bold">$1</span>')
+                      .replace(/\b(int|void|using|namespace|return|if|else|const|for|while|push_down|push_up)\b/g, '<span class="text-purple-400 font-bold">$1</span>')
                       .replace(/#include\s+&lt;[^&]+&gt;/g, '<span class="text-blue-400">$&</span>')
-                      .replace(/\b(tree|arr|lazy|build|update|updateRange|pushDown|query|main)\b/g, '<span class="text-yellow-200">$1</span>')
+                      .replace(/\b(tree|arr|lazy|build|update|updateRange|pushDown|query|main|max|min)\b/g, '<span class="text-yellow-200">$1</span>')
                      }} />
                   </span>
                 </div>

@@ -17,121 +17,354 @@ interface Level {
   blanks: Blank[];
 }
 
+// --- BASIC LEVELS ---
 const BASIC_LEVELS: Level[] = [
   {
-    id: 'basics',
-    title: '基础一：存储结构',
-    description: '线段树基础结构。用数组存储完全二叉树。',
-    codeTemplate: `int tree[MAXN * {{0}}]; 
+    id: 'b1_struct',
+    title: '基础一：存储与定义',
+    description: '搭建线段树的骨架。我们使用数组模拟完全二叉树。',
+    codeTemplate: `#include <iostream>
+using namespace std;
 
-int left_node(int node) { return node * 2; }
-int right_node(int node) { return {{1}}; }
-`,
-    blanks: [
-      {
-        id: 0,
-        question: "线段树数组通常开多大？",
-        options: [
-          { label: "2倍", value: "2", isCorrect: false },
-          { label: "4倍", value: "4", isCorrect: true },
-        ],
-        explanation: "堆式存储需要4倍空间防止越界。"
-      },
-      {
-        id: 1,
-        question: "右孩子索引？",
-        options: [
-          { label: "node * 2 + 1", value: "node * 2 + 1", isCorrect: true },
-          { label: "node + 1", value: "node + 1", isCorrect: false },
-        ],
-        explanation: "左孩子是2n，右孩子是2n+1。"
-      }
-    ]
-  },
-  {
-    id: 'build',
-    title: '基础二：建树',
-    description: '递归建树，Push Up 汇总。',
-    codeTemplate: `void build(int node, int start, int end) {
-    if ({{0}}) {
-        tree[node] = arr[start];
-        return;
-    }
-    // ... recursion ...
-    tree[node] = tree[left] + tree[right]; // Push Up
+const int MAXN = 100005;
+int arr[MAXN]; // 原数组
+int tree[MAXN * 4]; // 线段树数组
+
+// 左孩子: node * 2
+// 右孩子: node * 2 + 1
+// 思考：为什么开 4 倍空间？
+// 答：为了防止非满二叉树导致的越界访问。
+
+void push_up(int node) {
+    // 汇总逻辑：当前节点 = 左孩子 + 右孩子
+    tree[node] = tree[node * 2] + {{0}};
 }`,
     blanks: [
       {
         id: 0,
-        question: "递归终止条件？",
+        question: "如何获取右孩子的值？",
+        options: [
+          { label: "tree[node * 2 + 1]", value: "tree[node * 2 + 1]", isCorrect: true },
+          { label: "tree[node + 1]", value: "tree[node + 1]", isCorrect: false },
+        ],
+        explanation: "在数组模拟的堆结构中，右孩子索引是当前索引乘2加1。"
+      }
+    ]
+  },
+  {
+    id: 'b2_build',
+    title: '基础二：建树 (Build)',
+    description: '采用递归方式建立整棵树。',
+    codeTemplate: `void build(int node, int start, int end) {
+    // 递归出口：到达叶子节点
+    if ({{0}}) {
+        tree[node] = arr[start];
+        return;
+    }
+
+    int mid = (start + end) / 2;
+    // 递归建设左子树 [start, mid]
+    build(node * 2, start, mid);
+    // 递归建设右子树 [mid + 1, end]
+    build(node * 2 + 1, mid + 1, end);
+    
+    // 汇总子节点信息
+    push_up(node);
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "递归的终止条件是什么？",
         options: [
           { label: "start == end", value: "start == end", isCorrect: true },
           { label: "node == 0", value: "node == 0", isCorrect: false },
         ],
-        explanation: "左右边界重合时，说明到达叶子节点。"
+        explanation: "当区间左端点等于右端点时，说明已经定位到具体的某一个元素。"
+      }
+    ]
+  },
+  {
+    id: 'b3_update',
+    title: '基础三：单点修改',
+    description: '更新一个点的值，并维护路径上的所有和。',
+    codeTemplate: `void update(int node, int start, int end, int idx, int val) {
+    if (start == end) {
+        tree[node] = val;
+        arr[idx] = val;
+        return;
+    }
+    int mid = (start + end) / 2;
+    // 判断修改点在左边还是右边
+    if ({{0}}) {
+        update(node * 2, start, mid, idx, val);
+    } else {
+        update(node * 2 + 1, mid + 1, end, idx, val);
+    }
+    push_up(node);
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "什么时候去左子树寻找修改点？",
+        options: [
+          { label: "idx <= mid", value: "idx <= mid", isCorrect: true },
+          { label: "idx > mid", value: "idx > mid", isCorrect: false },
+        ],
+        explanation: "二分逻辑：如果目标下标 idx 小于等于中间点 mid，说明在左半区。"
+      }
+    ]
+  },
+  {
+    id: 'b4_query',
+    title: '基础四：区间查询',
+    description: '查询区间 [L, R] 的总和。',
+    codeTemplate: `int query(int node, int start, int end, int L, int R) {
+    // 1. 区间完全不在查询范围内（越界）
+    if (R < start || L > end) return 0;
+    
+    // 2. 当前区间完全被包含在查询范围内
+    if ({{0}}) {
+        return tree[node];
+    }
+    
+    // 3. 部分重叠，继续分裂查询
+    int mid = (start + end) / 2;
+    int sum_left = query(node * 2, start, mid, L, R);
+    int sum_right = query(node * 2 + 1, mid + 1, end, L, R);
+    
+    return sum_left + sum_right;
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "完全包含的条件？",
+        options: [
+          { label: "L <= start && end <= R", value: "L <= start && end <= R", isCorrect: true },
+          { label: "start <= L && R <= end", value: "start <= L && R <= end", isCorrect: false },
+        ],
+        explanation: "如果当前管理的区间 [start, end] 完全位于老板查询的 [L, R] 内部，直接上交业绩。"
       }
     ]
   }
 ];
 
+// --- ADVANCED LEVELS (Lazy) ---
 const ADVANCED_LEVELS: Level[] = [
   {
-    id: 'lazy_def',
-    title: '进阶一：懒标记',
-    description: '定义 Lazy 数组，记录未下发的任务。',
+    id: 'a1_lazy',
+    title: '进阶一：懒标记定义',
+    description: '引入 lazy 数组来存储待下发的任务。',
     codeTemplate: `int tree[MAXN * 4];
-int lazy[MAXN * {{0}}]; // 懒标记数组
+int lazy[MAXN * 4]; // 懒标记数组
 
-// 下发标记逻辑
-void pushDown(int node, int start, int end) {
-    if (lazy[node] != 0) {
-        // ... 下发逻辑 ...
-        lazy[node] = {{1}}; // 清空标记
-    }
+// 将标记下传一层
+void push_down(int node, int start, int end) {
+    if (lazy[node] == 0) return; // 没有标记不用管
+
+    int mid = (start + end) / 2;
+    int left = node * 2;
+    int right = node * 2 + 1;
+
+    // 1. 更新子节点的值
+    // 左子节点增加量 = 标记值 * 区间长度
+    tree[left] += lazy[node] * (mid - start + 1);
+    tree[right] += lazy[node] * (end - mid);
+
+    // 2. 标记累加给子节点
+    lazy[left] += lazy[node];
+    lazy[right] += lazy[node];
+
+    // 3. 清除当前节点标记
+    lazy[node] = {{0}};
 }`,
     blanks: [
       {
         id: 0,
-        question: "懒标记数组大小？",
+        question: "下发完成后，当前节点的标记应如何处理？",
         options: [
-          { label: "同原数组 N", value: "1", isCorrect: false },
-          { label: "同线段树 4N", value: "4", isCorrect: true },
-        ],
-        explanation: "懒标记也是对应到线段树的每个节点的，所以也要 4N。"
-      },
-      {
-        id: 1,
-        question: "下发后如何处理当前节点的标记？",
-        options: [
+          { label: "设为 0", value: "0", isCorrect: true },
           { label: "保持不变", value: "lazy[node]", isCorrect: false },
-          { label: "清零", value: "0", isCorrect: true },
         ],
-        explanation: "任务已经下发给下属了，自己手里的便利贴当然要撕掉。"
+        explanation: "任务已经分派给下属了，自己手里的备忘录（标记）就可以擦除了。"
       }
     ]
   },
   {
-    id: 'range_update',
+    id: 'a2_update',
     title: '进阶二：区间修改',
-    description: 'Update Range 核心逻辑。',
-    codeTemplate: `void updateRange(..., int L, int R, int val) {
+    description: '带懒标记的 Update。',
+    codeTemplate: `void update_range(int node, int start, int end, int L, int R, int val) {
+    // 区间被完全覆盖：直接修改并打标记
     if (L <= start && end <= R) {
         tree[node] += val * (end - start + 1);
         lazy[node] += {{0}};
         return;
     }
-    pushDown(node, start, end);
-    // ... recursion ...
+
+    // 部分重叠：先下放标记，再递归
+    push_down(node, start, end);
+    
+    int mid = (start + end) / 2;
+    if (L <= mid) update_range(node * 2, start, mid, L, R, val);
+    if (R > mid) update_range(node * 2 + 1, mid + 1, end, L, R, val);
+    
+    // 回溯时更新自己
+    tree[node] = tree[node * 2] + tree[node * 2 + 1];
 }`,
     blanks: [
       {
         id: 0,
-        question: "完全覆盖时，懒标记如何累加？",
+        question: "完全覆盖时，懒标记如何更新？",
         options: [
-          { label: "lazy[node] += val", value: "val", isCorrect: true },
-          { label: "lazy[node] = val", value: "= val", isCorrect: false },
+          { label: "覆盖 (lazy = val)", value: "val", isCorrect: false },
+          { label: "累加 (lazy += val)", value: "val", isCorrect: true },
         ],
-        explanation: "是累加（+=），因为可能之前还有没下发的任务，不能直接覆盖。"
+        explanation: "因为可能之前还有没处理的任务，所以新的修改量要累加到旧的标记上。"
+      }
+    ]
+  },
+  {
+    id: 'a3_query',
+    title: '进阶三：区间查询',
+    description: '带 Push Down 的查询。',
+    codeTemplate: `int query(int node, int start, int end, int L, int R) {
+    if (R < start || L > end) return 0;
+    if (L <= start && end <= R) return tree[node];
+
+    // 核心差异：查询前必须下放标记
+    // 否则子节点的数据可能是旧的
+    push_down(node, start, end);
+
+    int mid = (start + end) / 2;
+    int res = 0;
+    if (L <= mid) res += query(node * 2, start, mid, L, R);
+    if (R > mid) res += {{0}};
+    return res;
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "右子树的查询逻辑？",
+        options: [
+          { label: "query(right, mid+1, end, L, R)", value: "query(node * 2 + 1, mid + 1, end, L, R)", isCorrect: true },
+          { label: "tree[right]", value: "tree[node * 2 + 1]", isCorrect: false },
+        ],
+        explanation: "标准的分治查询逻辑。"
+      }
+    ]
+  }
+];
+
+// --- EXPERT LEVELS (RMQ) ---
+const EXPERT_LEVELS: Level[] = [
+  {
+    id: 'e1_concept',
+    title: '高阶一：最值思想',
+    description: '将求和 (Sum) 思维转换为求最大值 (Max) 思维。',
+    codeTemplate: `#include <algorithm>
+// ...
+// 汇总逻辑 Push Up
+void push_up(int node) {
+    // 问：经理的业绩是所有下属业绩的总和吗？
+    // 答：不是，RMQ中经理记录的是下属里的“最强者”。
+    tree[node] = max(tree[node * 2], {{0}});
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "应该取谁的最大值？",
+        options: [
+          { label: "tree[node * 2 + 1]", value: "tree[node * 2 + 1]", isCorrect: true },
+          { label: "tree[node] + 1", value: "tree[node] + 1", isCorrect: false },
+        ],
+        explanation: "当前区间最大值 = max(左区间最大值, 右区间最大值)。"
+      }
+    ]
+  },
+  {
+    id: 'e2_build',
+    title: '高阶二：建树',
+    description: 'RMQ 的建树过程。',
+    codeTemplate: `void build(int node, int start, int end) {
+    if (start == end) {
+        tree[node] = arr[start];
+        return;
+    }
+    int mid = (start + end) / 2;
+    build(node * 2, start, mid);
+    build(node * 2 + 1, mid + 1, end);
+    
+    // 这里的 push_up 使用的是 max 逻辑
+    push_up(node); 
+}
+// 注意：数组初始化要小心，求最大值时通常不需要特殊初始化，
+// 但如果求最小值，背景值需要设为 INF。
+`,
+    blanks: [
+      {
+        id: 0,
+        question: "本题无需填空，请确认理解 Push Up 变化",
+        options: [
+          { label: "已理解", value: "ok", isCorrect: true }
+        ],
+        explanation: "RMQ 与 Sum 线段树唯一的区别就在于 Push Up 和 Query 时的合并操作。"
+      }
+    ]
+  },
+  {
+    id: 'e3_query',
+    title: '高阶三：区间最值查询',
+    description: '查询 [L, R] 范围内的最大值。',
+    codeTemplate: `int query_max(int node, int start, int end, int L, int R) {
+    if (R < start || L > end) return -2e9; // 返回极小值
+    if (L <= start && end <= R) return tree[node];
+
+    int mid = (start + end) / 2;
+    int max_val = -2e9;
+    
+    if (L <= mid) 
+        max_val = max(max_val, query_max(node * 2, start, mid, L, R));
+    if (R > mid) 
+        max_val = {{0}};
+        
+    return max_val;
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "如何合并右半边的结果？",
+        options: [
+          { label: "max(max_val, query_right)", value: "max(max_val, query_max(node * 2 + 1, mid + 1, end, L, R))", isCorrect: true },
+          { label: "max_val + query_right", value: "max_val + query_right", isCorrect: false },
+        ],
+        explanation: "始终保持取最大值的逻辑，千万别手顺写成加法了！"
+      }
+    ]
+  },
+  {
+    id: 'e4_update',
+    title: '高阶四：单点修改',
+    description: '修改单点值并刷新最值记录。',
+    codeTemplate: `void update(int node, int start, int end, int idx, int val) {
+    if (start == end) {
+        tree[node] = val; // 直接修改
+        return;
+    }
+    int mid = (start + end) / 2;
+    if (idx <= mid) update(node * 2, start, mid, idx, val);
+    else update(node * 2 + 1, mid + 1, end, idx, val);
+    
+    // 只要下属有变动，经理必须重新评选最强者
+    push_up(node);
+}`,
+    blanks: [
+      {
+        id: 0,
+        question: "本题无需填空，点击完成结束高阶课程",
+        options: [
+          { label: "完成", value: "done", isCorrect: true }
+        ],
+        explanation: "恭喜你！你已经掌握了线段树的核心变体。"
       }
     ]
   }
@@ -155,7 +388,10 @@ const GuidedCoding: React.FC<Props> = ({ level }) => {
     setFeedback(null);
   }, [level]);
 
-  const levels = level === 'basic' ? BASIC_LEVELS : ADVANCED_LEVELS;
+  let levels = BASIC_LEVELS;
+  if (level === 'advanced') levels = ADVANCED_LEVELS;
+  if (level === 'expert') levels = EXPERT_LEVELS;
+
   const currentLevel = levels[currentLevelIdx];
 
   const handleSelectOption = (levelId: string, blankId: number, value: string, isCorrect: boolean) => {
@@ -259,6 +495,11 @@ const GuidedCoding: React.FC<Props> = ({ level }) => {
                     <button onClick={handleNextLevel} className="mt-4 w-full bg-primary hover:bg-blue-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition">
                        进入下一关 <ChevronRight className="w-4 h-4" />
                     </button>
+                )}
+                 {isLevelComplete && currentLevelIdx === levels.length - 1 && (
+                    <div className="mt-4 w-full bg-accent/20 text-accent py-3 rounded-lg font-bold text-center border border-accent">
+                       本阶段课程完成！
+                    </div>
                 )}
             </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, RotateCcw, Search, Edit3, Layers } from 'lucide-react';
+import { Play, RotateCcw, Search, Edit3, Layers, BarChart2 } from 'lucide-react';
 import { TreeNode, LogStep, CourseLevel } from '../types';
 import { generateTreeLayout, simulateQuery, simulatePointUpdate, simulateRangeUpdate } from '../utils/treeUtils';
 
@@ -21,7 +21,7 @@ const Visualizer: React.FC<Props> = ({ level }) => {
   const [queryL, setQueryL] = useState(0);
   const [queryR, setQueryR] = useState(7);
   const [updateIdx, setUpdateIdx] = useState(2);
-  const [updateVal, setUpdateVal] = useState(10);
+  const [updateVal, setUpdateVal] = useState(20);
   const [rangeUpdateL, setRangeUpdateL] = useState(1);
   const [rangeUpdateR, setRangeUpdateR] = useState(4);
   const [rangeUpdateVal, setRangeUpdateVal] = useState(2);
@@ -29,14 +29,16 @@ const Visualizer: React.FC<Props> = ({ level }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [resultMessage, setResultMessage] = useState<string>('');
 
+  const mode = level === 'expert' ? 'MAX' : 'SUM';
+
   // Reset when level changes
   useEffect(() => {
     handleReset();
   }, [level]);
 
   useEffect(() => {
-    setTreeNodes(generateTreeLayout(data));
-  }, [data]);
+    setTreeNodes(generateTreeLayout(data, mode));
+  }, [data, mode]);
 
   const runAnimation = async (steps: LogStep[], finalNodes?: TreeNode[]) => {
     setIsAnimating(true);
@@ -52,9 +54,6 @@ const Visualizer: React.FC<Props> = ({ level }) => {
 
     if (finalNodes) {
       setTreeNodes(finalNodes);
-      // In a real app, we'd also sync the base 'data' array for consistency if leaves changed,
-      // but for range updates with lazy, the base array 'data' concept is less direct without full pushdown.
-      // We'll keep treeNodes as the source of truth for visualization.
     }
 
     setActiveNodeId(null);
@@ -64,25 +63,25 @@ const Visualizer: React.FC<Props> = ({ level }) => {
 
   const handleQuery = () => {
     if (isAnimating) return;
-    const steps = simulateQuery(treeNodes, queryL, queryR, level === 'advanced');
+    const steps = simulateQuery(treeNodes, queryL, queryR, level === 'advanced', mode);
     runAnimation(steps);
     
-    // Simple calculation for display (Note: this doesn't use the tree structure logic, just array, 
-    // so if range updates happened with lazy, this sum might be wrong unless we fully push down. 
-    // For demo simplicity, we won't show the "calculated" sum text for Advanced mode to avoid confusion)
-    if (level === 'basic') {
-        let sum = 0;
-        for(let i=queryL; i<=queryR; i++) sum += data[i];
-        setTimeout(() => setResultMessage(`查询结果 (Sum): ${sum}`), steps.length * 800);
+    // Calculate expected result for display
+    let res = 0;
+    if (mode === 'SUM') {
+       res = 0;
+       for(let i=queryL; i<=queryR; i++) res += data[i];
     } else {
-        // Advanced: rely on the visualizer logs to show result
-        setTimeout(() => setResultMessage(`查询结束`), steps.length * 800);
+       res = -Infinity;
+       for(let i=queryL; i<=queryR; i++) res = Math.max(res, data[i]);
     }
+    
+    setTimeout(() => setResultMessage(`${mode === 'SUM' ? '求和' : '最大值'}结果: ${res}`), steps.length * 800);
   };
 
   const handlePointUpdate = () => {
     if (isAnimating) return;
-    const { steps, newNodes } = simulatePointUpdate(treeNodes, updateIdx, updateVal);
+    const { steps, newNodes } = simulatePointUpdate(treeNodes, updateIdx, updateVal, mode);
     // Sync data for point update
     const newData = [...data];
     newData[updateIdx] = updateVal;
@@ -92,13 +91,18 @@ const Visualizer: React.FC<Props> = ({ level }) => {
 
   const handleRangeUpdate = () => {
     if (isAnimating) return;
+    if (level === 'expert') {
+        alert("本演示的高阶模式主要展示 RMQ 的查询逻辑。区间修改请参考进阶篇。");
+        return;
+    }
     const { steps, newNodes } = simulateRangeUpdate(treeNodes, rangeUpdateL, rangeUpdateR, rangeUpdateVal);
+    // Note: data sync for range update with lazy is complex for visualization array, we rely on treeNodes
     runAnimation(steps, newNodes);
   };
 
   const handleReset = () => {
     setData(DEFAULT_ARRAY);
-    setTreeNodes(generateTreeLayout(DEFAULT_ARRAY));
+    setTreeNodes(generateTreeLayout(DEFAULT_ARRAY, mode));
     setLogs([]);
     setResultMessage('');
   };
@@ -109,14 +113,17 @@ const Visualizer: React.FC<Props> = ({ level }) => {
       <div className="w-full lg:w-1/3 space-y-4">
         <div className="bg-dark-lighter p-4 rounded-xl border border-gray-700 shadow-lg">
           <h3 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-            <Play className="w-5 h-5" /> 控制台 ({level === 'basic' ? '基础' : '进阶'})
+            <Play className="w-5 h-5" /> 控制台 
+            <span className="text-sm bg-gray-800 px-2 py-0.5 rounded text-gray-400">
+               {level === 'basic' ? '基础: SUM' : level === 'advanced' ? '进阶: Lazy SUM' : '高阶: MAX'}
+            </span>
           </h3>
           
           <div className="space-y-6">
             {/* Query Control */}
             <div className="space-y-2">
               <label className="text-sm text-gray-400 font-semibold flex items-center gap-2">
-                <Search className="w-4 h-4" /> 区间查询 (Sum)
+                <Search className="w-4 h-4" /> 区间查询 ({mode})
               </label>
               <div className="flex gap-2">
                 <input 
@@ -142,11 +149,11 @@ const Visualizer: React.FC<Props> = ({ level }) => {
               </div>
             </div>
 
-            {/* Basic: Point Update */}
-            {level === 'basic' && (
+            {/* Basic & Expert: Point Update */}
+            {(level === 'basic' || level === 'expert') && (
             <div className="space-y-2">
               <label className="text-sm text-gray-400 font-semibold flex items-center gap-2">
-                <Edit3 className="w-4 h-4" /> 单点更新 (Point Update)
+                <Edit3 className="w-4 h-4" /> 单点更新 (Set Value)
               </label>
               <div className="flex gap-2">
                 <input 
@@ -164,7 +171,7 @@ const Visualizer: React.FC<Props> = ({ level }) => {
                 <button 
                   onClick={handlePointUpdate}
                   disabled={isAnimating}
-                  className="bg-accent hover:bg-yellow-600 disabled:opacity-50 text-white px-4 py-2 rounded font-bold transition"
+                  className={`disabled:opacity-50 text-white px-4 py-2 rounded font-bold transition ${level === 'expert' ? 'bg-purple-600 hover:bg-purple-500' : 'bg-accent hover:bg-yellow-600'}`}
                 >
                   更新
                 </button>
@@ -176,7 +183,7 @@ const Visualizer: React.FC<Props> = ({ level }) => {
             {level === 'advanced' && (
             <div className="space-y-2">
               <label className="text-sm text-yellow-400 font-semibold flex items-center gap-2">
-                <Layers className="w-4 h-4" /> 区间更新 (Range Add)
+                <Layers className="w-4 h-4" /> 区间更新 (Add Value)
               </label>
               <div className="flex gap-2 mb-2">
                 <input 
@@ -322,7 +329,7 @@ const Visualizer: React.FC<Props> = ({ level }) => {
                   {node.value}
                 </text>
                 
-                {/* Lazy Badge */}
+                {/* Lazy Badge (Advanced Only) */}
                 {level === 'advanced' && node.lazy !== 0 && (
                   <g>
                      <circle cx={node.x + 18} cy={node.y - 18} r={10} fill="#ef4444" stroke="#fff" strokeWidth="1" />

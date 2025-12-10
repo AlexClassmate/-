@@ -6,7 +6,9 @@ const CANVAS_HEIGHT = 400;
 const START_Y = 50;
 const LEVEL_HEIGHT = 80;
 
-export const generateTreeLayout = (arr: number[]): TreeNode[] => {
+type AggregationMode = 'SUM' | 'MAX';
+
+export const generateTreeLayout = (arr: number[], mode: AggregationMode = 'SUM'): TreeNode[] => {
   const nodes: TreeNode[] = [];
   const n = arr.length;
 
@@ -16,7 +18,7 @@ export const generateTreeLayout = (arr: number[]): TreeNode[] => {
     const node: TreeNode = {
       id,
       value: 0,
-      lazy: 0, // Initialize lazy tag
+      lazy: 0,
       left: l,
       right: r,
       x,
@@ -36,7 +38,11 @@ export const generateTreeLayout = (arr: number[]): TreeNode[] => {
     const leftVal = build(id * 2, l, mid, depth + 1, x - offset, rangeWidth / 2);
     const rightVal = build(id * 2 + 1, mid + 1, r, depth + 1, x + offset, rangeWidth / 2);
     
-    node.value = leftVal + rightVal;
+    if (mode === 'SUM') {
+      node.value = leftVal + rightVal;
+    } else {
+      node.value = Math.max(leftVal, rightVal);
+    }
     return node.value;
   };
 
@@ -44,7 +50,8 @@ export const generateTreeLayout = (arr: number[]): TreeNode[] => {
   return nodes.sort((a, b) => a.id - b.id);
 };
 
-// Helper: Apply lazy to children (Simulation only)
+// Helper: Apply lazy to children (Simulation only, simplified for visualizer)
+// Note: This logic primarily targets Sum aggregation for Advanced level.
 const simulatePushDown = (nodeId: number, nodes: TreeNode[], steps: LogStep[]) => {
   const nodeIndex = nodes.findIndex(n => n.id === nodeId);
   if (nodeIndex === -1) return;
@@ -57,6 +64,8 @@ const simulatePushDown = (nodeId: number, nodes: TreeNode[], steps: LogStep[]) =
 
     if (leftChildIdx !== -1) {
       nodes[leftChildIdx].lazy += node.lazy;
+      // Note: For MAX, lazy add is just value += lazy, for SUM it's value += lazy * len
+      // Here we assume SUM logic as Advanced level uses SUM. Expert uses Point update usually.
       nodes[leftChildIdx].value += node.lazy * (mid - node.left + 1);
     }
     if (rightChildIdx !== -1) {
@@ -78,19 +87,14 @@ export const simulateQuery = (
   nodes: TreeNode[], 
   queryL: number, 
   queryR: number,
-  useLazy: boolean = false
+  useLazy: boolean = false,
+  mode: AggregationMode = 'SUM'
 ): LogStep[] => {
   const steps: LogStep[] = [];
-  // Use a copy to simulate pushdowns without affecting the main visual state immediately 
-  // (In a real app, query might modify state if it triggers pushdown, here we just show logs usually, 
-  // but for visualization consistency we might need to be careful. For this demo, we won't mutate the *input* nodes permanently in query)
   
-  // NOTE: To properly visualize query with lazy, we conceptually need to know values. 
-  // Since we don't return newNodes from query, we just simulate traversal logic.
-  
-  const query = (nodeId: number, l: number, r: number, ql: number, qr: number) => {
+  const query = (nodeId: number, l: number, r: number, ql: number, qr: number): number => {
     const node = nodes.find(n => n.id === nodeId);
-    if (!node) return 0;
+    if (!node) return mode === 'SUM' ? 0 : -Infinity;
 
     steps.push({
       nodeId,
@@ -98,7 +102,7 @@ export const simulateQuery = (
       highlight: 'visiting'
     });
 
-    if (l > qr || r < ql) return 0;
+    if (l > qr || r < ql) return mode === 'SUM' ? 0 : -Infinity;
 
     if (l >= ql && r <= qr) {
       steps.push({
@@ -109,11 +113,10 @@ export const simulateQuery = (
       return node.value;
     }
 
-    // Lazy Pushdown Check
     if (useLazy && node.lazy !== 0) {
        steps.push({
         nodeId,
-        message: `查询路径遇到懒标记 ${node.lazy}，虽然逻辑上需要下传，但查询函数通常在回溯时合并值。此处为展示逻辑。`,
+        message: `Push Down 检查`,
         highlight: 'pushdown'
       });
     }
@@ -125,10 +128,12 @@ export const simulateQuery = (
     });
 
     const mid = Math.floor((l + r) / 2);
-    const leftSum = query(nodeId * 2, l, mid, ql, qr);
-    const rightSum = query(nodeId * 2 + 1, mid + 1, r, ql, qr);
+    const leftRes = query(nodeId * 2, l, mid, ql, qr);
+    const rightRes = query(nodeId * 2 + 1, mid + 1, r, ql, qr);
     
-    return leftSum + rightSum;
+    if (mode === 'SUM') return leftRes + rightRes;
+    // Handle -Infinity for cleaner display logic if needed, but Math.max works
+    return Math.max(leftRes, rightRes);
   };
 
   const root = nodes.find(n => n.id === 1);
@@ -142,7 +147,8 @@ export const simulateQuery = (
 export const simulatePointUpdate = (
   nodes: TreeNode[],
   index: number,
-  newValue: number
+  newValue: number,
+  mode: AggregationMode = 'SUM'
 ): { steps: LogStep[], newNodes: TreeNode[] } => {
   const steps: LogStep[] = [];
   const nextNodes = JSON.parse(JSON.stringify(nodes));
@@ -167,10 +173,15 @@ export const simulatePointUpdate = (
     const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
     
     if (leftChild && rightChild) {
-      nextNodes[nodeIndex].value = leftChild.value + rightChild.value;
+      if (mode === 'SUM') {
+        nextNodes[nodeIndex].value = leftChild.value + rightChild.value;
+      } else {
+        nextNodes[nodeIndex].value = Math.max(leftChild.value, rightChild.value);
+      }
+      
       steps.push({
         nodeId,
-        message: `Push Up: 更新和为 ${nextNodes[nodeIndex].value}`,
+        message: `Push Up: 更新本节点值为 ${nextNodes[nodeIndex].value}`,
         highlight: 'updating'
       });
     }
@@ -198,7 +209,6 @@ export const simulateRangeUpdate = (
 
     steps.push({ nodeId, message: `访问节点 [${start}, ${end}]`, highlight: 'visiting' });
 
-    // Case 1: Fully within range
     if (l <= start && end <= r) {
       node.value += v * (end - start + 1);
       node.lazy += v;
@@ -210,14 +220,12 @@ export const simulateRangeUpdate = (
       return;
     }
 
-    // Case 2: Partial overlap, Push Down first
     simulatePushDown(nodeId, nextNodes, steps);
 
     const mid = Math.floor((start + end) / 2);
     if (l <= mid) updateRange(nodeId * 2, start, mid, l, r, v);
     if (r > mid) updateRange(nodeId * 2 + 1, mid + 1, end, l, r, v);
 
-    // Push Up
     const leftChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2);
     const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
     if (leftChild && rightChild) {
