@@ -29,7 +29,7 @@ export const generateTreeLayout = (arr: number[], mode: AggregationMode = 'SUM')
 
     if (l === r) {
       node.value = arr[l];
-      return node.value;
+      return node.value as number;
     }
 
     const mid = Math.floor((l + r) / 2);
@@ -43,7 +43,7 @@ export const generateTreeLayout = (arr: number[], mode: AggregationMode = 'SUM')
     } else {
       node.value = Math.max(leftVal, rightVal);
     }
-    return node.value;
+    return node.value as number;
   };
 
   build(1, 0, n - 1, 0, CANVAS_WIDTH / 2, CANVAS_WIDTH);
@@ -57,25 +57,32 @@ const simulatePushDown = (nodeId: number, nodes: TreeNode[], steps: LogStep[]) =
   if (nodeIndex === -1) return;
   const node = nodes[nodeIndex];
 
-  if (node.lazy !== 0 && node.left !== node.right) {
-    const mid = Math.floor((node.left + node.right) / 2);
+  // Safeguard accesses
+  const lazyVal = node.lazy || 0;
+  const left = node.left;
+  const right = node.right;
+
+  if (lazyVal !== 0 && left !== undefined && right !== undefined && left !== right) {
+    const mid = Math.floor((left + right) / 2);
     const leftChildIdx = nodes.findIndex(n => n.id === nodeId * 2);
     const rightChildIdx = nodes.findIndex(n => n.id === nodeId * 2 + 1);
 
     if (leftChildIdx !== -1) {
-      nodes[leftChildIdx].lazy += node.lazy;
+      nodes[leftChildIdx].lazy = (nodes[leftChildIdx].lazy || 0) + lazyVal;
       // Note: For MAX, lazy add is just value += lazy, for SUM it's value += lazy * len
       // Here we assume SUM logic as Advanced level uses SUM. Expert uses Point update usually.
-      nodes[leftChildIdx].value += node.lazy * (mid - node.left + 1);
+      const currentVal = nodes[leftChildIdx].value as number;
+      nodes[leftChildIdx].value = currentVal + lazyVal * (mid - left + 1);
     }
     if (rightChildIdx !== -1) {
-      nodes[rightChildIdx].lazy += node.lazy;
-      nodes[rightChildIdx].value += node.lazy * (node.right - mid);
+      nodes[rightChildIdx].lazy = (nodes[rightChildIdx].lazy || 0) + lazyVal;
+      const currentVal = nodes[rightChildIdx].value as number;
+      nodes[rightChildIdx].value = currentVal + lazyVal * (right - mid);
     }
     
     steps.push({
       nodeId,
-      message: `Push Down: 懒标记 ${node.lazy} 下传给子节点`,
+      message: `Push Down: 懒标记 ${lazyVal} 下传给子节点`,
       highlight: 'pushdown'
     });
 
@@ -110,7 +117,7 @@ export const simulateQuery = (
         message: `完全包含，返回 ${node.value}`,
         highlight: 'found'
       });
-      return node.value;
+      return node.value as number;
     }
 
     if (useLazy && node.lazy !== 0) {
@@ -119,6 +126,8 @@ export const simulateQuery = (
         message: `Push Down 检查`,
         highlight: 'pushdown'
       });
+      // In simulation we update the tree model to reflect pushdown so deeper queries are correct
+      simulatePushDown(nodeId, nodes, []); 
     }
 
     steps.push({
@@ -137,7 +146,7 @@ export const simulateQuery = (
   };
 
   const root = nodes.find(n => n.id === 1);
-  if (root) {
+  if (root && root.left !== undefined && root.right !== undefined) {
     query(1, root.left, root.right, queryL, queryR);
   }
   
@@ -173,10 +182,13 @@ export const simulatePointUpdate = (
     const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
     
     if (leftChild && rightChild) {
+      const leftVal = leftChild.value as number;
+      const rightVal = rightChild.value as number;
+
       if (mode === 'SUM') {
-        nextNodes[nodeIndex].value = leftChild.value + rightChild.value;
+        nextNodes[nodeIndex].value = leftVal + rightVal;
       } else {
-        nextNodes[nodeIndex].value = Math.max(leftChild.value, rightChild.value);
+        nextNodes[nodeIndex].value = Math.max(leftVal, rightVal);
       }
       
       steps.push({
@@ -188,7 +200,9 @@ export const simulatePointUpdate = (
   };
 
   const root = nextNodes.find((n: TreeNode) => n.id === 1);
-  if (root) update(1, root.left, root.right, index, newValue);
+  if (root && root.left !== undefined && root.right !== undefined) {
+    update(1, root.left, root.right, index, newValue);
+  }
 
   return { steps, newNodes: nextNodes };
 };
@@ -210,8 +224,8 @@ export const simulateRangeUpdate = (
     steps.push({ nodeId, message: `访问节点 [${start}, ${end}]`, highlight: 'visiting' });
 
     if (l <= start && end <= r) {
-      node.value += v * (end - start + 1);
-      node.lazy += v;
+      node.value = (node.value as number) + v * (end - start + 1);
+      node.lazy = (node.lazy || 0) + v;
       steps.push({
         nodeId,
         message: `区间完全包含。打上懒标记 +${v}，更新当前值为 ${node.value}`,
@@ -229,7 +243,7 @@ export const simulateRangeUpdate = (
     const leftChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2);
     const rightChild = nextNodes.find((n: TreeNode) => n.id === nodeId * 2 + 1);
     if (leftChild && rightChild) {
-       node.value = leftChild.value + rightChild.value;
+       node.value = (leftChild.value as number) + (rightChild.value as number);
        steps.push({
         nodeId,
         message: `Push Up: 更新本节点值为 ${node.value}`,
@@ -239,7 +253,9 @@ export const simulateRangeUpdate = (
   };
 
   const root = nextNodes.find((n: TreeNode) => n.id === 1);
-  if (root) updateRange(1, root.left, root.right, L, R, val);
+  if (root && root.left !== undefined && root.right !== undefined) {
+    updateRange(1, root.left, root.right, L, R, val);
+  }
 
   return { steps, newNodes: nextNodes };
 };
