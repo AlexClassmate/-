@@ -147,10 +147,289 @@ void push_down(int node, int l, int r) {
 ];
 
 // ==================================================================================
-// ========================= BFS MASTER CLASS =======================================
+// ========================= DFS MASTER CLASS =======================================
 // ==================================================================================
 
-// --- BFS BASIC ---
+// --- DFS BASIC ---
+export const DFS_BASIC_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. DFS：不撞南墙不回头',
+    content: `
+### 一条道走到黑
+**深度优先搜索 (DFS)** 的性格极其倔强。
+如果说 BFS 是“水波纹扩散”，那 DFS 就是“走迷宫的愣头青”。
+
+- 它选择一条路，就一直往下走，直到无路可走（撞了南墙）。
+- 撞墙后，它回退一步（回溯），看看还有没有别的路。
+- 如果有，就换条路继续走到黑；如果没有，继续回退。
+
+### 核心武器：栈 (Stack) / 递归
+DFS 天然符合 **LIFO (后进先出)** 的特性。
+我们通常直接用**递归函数**来实现，系统栈会自动帮我们保存回退的路径。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：DFS 遍历顺序',
+    content: `
+**实验步骤**：
+1. 观察右侧的图，我们从 Node 1 开始。
+2. 点击 **Start DFS**。
+3. **关键观察点**：
+   - 注意它是一条线扎下去的 (1 -> 2 -> 4 -> ...)。
+   - 当它在 Node 4 无路可走时，会变红（回溯），退回 Node 2，再去找 Node 5。
+   - 这种“深入敌后”的特性，让它非常适合解决连通性、全排列等问题。
+    `
+  },
+  {
+    id: 3,
+    type: 'code',
+    title: '3. 实战填空：递归模板',
+    content: `DFS 的代码比 BFS 更短，更有艺术感。`,
+    codeProblem: {
+      template: `bool visited[MAXN];
+
+void dfs(int u) {
+    visited[u] = true;
+    cout << "Visiting " << u << endl;
+
+    for(int v : adj[u]) {
+        if({{0}}) {
+            dfs(v); // 递归调用
+        }
+    }
+}`,
+      blanks: [
+        { id: 0, question: "访问邻居的条件", options: [{ label: "!visited[v]", value: "!visited[v]", isCorrect: true }, { label: "visited[v]", value: "visited[v]", isCorrect: false }] }
+      ]
+    }
+  }
+];
+
+// --- DFS CONNECTIVITY ---
+export const DFS_CONNECT_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用一：连通性检测',
+    content: `
+### 孤岛危机
+给定一张图，可能有好几个互不相连的圈子（连通分量）。
+如何数出一共有多少个圈子？
+
+### 染色法
+1. 遍历所有点 1...N。
+2. 如果点 i 没被访问过，说明发现了一块新大陆！计数器 +1。
+3. 立刻从点 i 发动 DFS，把和它相连的所有点都打上标记（染成同一种颜色）。
+4. 无论这个圈子多复杂，DFS 都能顺藤摸瓜把它们一网打尽。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '实验：数岛屿',
+    content: `
+右侧图中有几个断开的部分。
+**实验步骤**：
+1. 点击 **Count Components**。
+2. 观察 DFS 如何把一个连通块全部染绿，然后停下来。
+3. 主循环继续寻找下一个未染色的点，再次发动 DFS。
+    `
+  }
+];
+
+// --- DFS PERMUTATIONS ---
+export const DFS_PERM_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用二：全排列 (回溯法)',
+    content: `
+### 暴力枚举的艺术
+有 3 个盒子，3 张牌 (1, 2, 3)。要把牌全部放进盒子里，有多少种放法？
+这无法用简单的循环解决（如果有 N 个盒子呢？）。
+
+### 决策树
+DFS 可以模拟**决策过程**：
+1.站在第 1 个盒子前，手里的牌有 {1, 2, 3}。我选 1。
+2.走到第 2 个盒子前，手里剩 {2, 3}。我选 2。
+3.走到第 3 个盒子前，手里剩 {3}。我选 3。
+4.放完了！记录结果 [1, 2, 3]。
+5.**回溯**：把 3 号牌拿回来，看看还能不能放别的？没别的了。
+6.退回第 2 个盒子，把 2 号牌拿回来。手里有 {2, 3}。这次我选 3！
+    `
+  },
+  {
+    id: 2,
+    type: 'code',
+    title: '代码填空：回溯模板',
+    content: `回溯法最重要的就是“恢复现场”。`,
+    codeProblem: {
+      template: `void dfs(int step) {
+    if (step == n + 1) {
+        print_result();
+        return;
+    }
+    for (int i = 1; i <= n; i++) {
+        if (!used[i]) {
+            used[i] = true; // 标记占用
+            path[step] = i;
+            
+            dfs(step + 1); // 进下一层
+            
+            {{0}}; // 回溯：恢复现场！
+        }
+    }
+}`,
+      blanks: [
+        { id: 0, question: "回溯操作", options: [{ label: "used[i] = false", value: "used[i] = false", isCorrect: true }, { label: "path[step] = 0", value: "path[step] = 0", isCorrect: false }] }
+      ]
+    }
+  }
+];
+
+// --- DFS MAZE ---
+export const DFS_MAZE_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用三：迷宫寻路',
+    content: `
+### 摸着墙走
+在迷宫里，DFS 策略就是：
+随便选一个方向走，只要不撞墙、不走回头路，就一直走。
+如果走进死胡同，就退回到上一个路口，换个方向走。
+
+### 优缺点
+- **优点**：内存占用小（只存一条路径）。
+- **缺点**：找出的路**不一定是最短路**！它可能绕了地球一圈才找到终点。
+- **对比**：找最短路请用 BFS。找“存不存在一条路”或者“遍历所有路”，用 DFS。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '实验：迷宫探险',
+    content: `
+**实验步骤**：
+1. 点击 **Start Maze DFS**。
+2. 观察红色探路者是如何钻进死胡同，然后变色回退的。
+3. 注意：它找到终点时，路径可能是弯弯曲曲的。
+    `
+  }
+];
+
+// --- DFS N-QUEENS ---
+export const DFS_NQUEENS_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用四：N 皇后问题',
+    content: `
+### 皇家的烦恼
+在 N×N 的棋盘上放 N 个皇后，使得她们互不攻击（不在同一行、同一列、同一对角线）。
+这是一个经典的**约束满足问题**。
+
+### 按行搜索
+我们一行一行地放。
+1. 在第 1 行，尝试放在第 1 列。
+2. 在第 2 行，检查哪一列安全？尝试放在安全的位置。
+3. ...
+4. 如果到了第 k 行，发现所有列都被攻击了，说明前面的摆法有问题！**回溯**！
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '实验：八皇后演示',
+    content: `
+**实验步骤**：
+1. 点击 **Start N-Queens** (默认演示 4皇后或8皇后)。
+2. 观察棋盘：
+   - **Q**：尝试放置的皇后。
+   - **红色X**：被攻击的区域。
+   - 当一行全红时，算法会回溯到上一行，移动那个皇后。
+    `
+  }
+];
+
+// --- DFS KNAPSACK/SUBSET SUM ---
+export const DFS_BAG_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用五：子集和问题',
+    content: `
+### 选还是不选
+给定一堆数字，能不能从中选出几个，让它们的和恰好等于 Target？
+或者：背包容量为 W，怎么选价值最大？
+
+对于每个物品，我们只有两个选择：
+1. **选它**：Target 减去当前值，去考虑下一个物品。
+2. **不选它**：Target 不变，去考虑下一个物品。
+
+这构成了一棵**二叉搜索树**。DFS 可以遍历这棵树的所有叶子，找到答案。
+    `
+  }
+];
+
+// --- DFS GRAPH ALGO ---
+export const DFS_GRAPH_ALGO_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用六：图的环检测',
+    content: `
+### 这里的路我好像走过
+怎么判断一个有向图里有没有环？
+简单的 \`visited\` 数组不够用，我们需要**三色标记法**：
+
+- **白色 (0)**：未访问。
+- **灰色 (1)**：正在访问（在递归栈中，还没回溯）。
+- **黑色 (2)**：已访问完毕（回溯完了）。
+
+如果在 DFS 过程中，你遇到了一个**灰色**的节点，说明你绕了一圈回到了自己的祖先节点——**有环！**
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '实验：找环',
+    content: `
+**实验步骤**：
+1. 观察图中的箭头。
+2. 点击 **Detect Cycle**。
+3. 节点变**黄**表示正在递归（灰色状态）。
+4. 如果一条黄色的路撞到了黄色的点，瞬间标红——发现环！
+    `
+  }
+];
+
+// --- DFS PRUNING ---
+export const DFS_PRUNING_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '应用七：剪枝技巧',
+    content: `
+### 别去南墙了
+DFS 的搜索空间往往是指数级的。如果不加控制，程序会跑几亿年。
+**剪枝 (Pruning)** 就是在搜索过程中，提前判断“这条路肯定没戏”，然后直接回溯，不再浪费时间。
+
+### 常见剪枝
+1. **可行性剪枝**：当前和已经超过 Target，后面全是正数，不用再加了。
+2. **最优性剪枝**：当前花费已经超过了之前找到的最优解，后面再好也没用了。
+    `
+  }
+];
+
+
+// ================= BFS & EXISTING =================
+// (Include all existing BFS lectures here to avoid overwrite issues)
+
 export const BFS_BASIC_LECTURE: LectureStep[] = [
   {
     id: 1,

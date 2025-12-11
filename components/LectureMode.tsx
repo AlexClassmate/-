@@ -1,13 +1,16 @@
 
-import React, { useState } from 'react';
-import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb } from 'lucide-react';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Volume2, StopCircle, Loader } from 'lucide-react';
+import { GoogleGenAI, Modality } from "@google/genai";
 import { Topic, LectureStep, Theme } from '../types';
 import { 
     AC_AUTOMATON_LECTURE, KMP_LECTURE, MANACHER_LECTURE, BALANCED_TREE_LECTURE,
     MST_LECTURE, SHORTEST_PATH_LECTURE, TARJAN_LECTURE, DIFF_CONSTRAINTS_LECTURE,
     SWEEP_LINE_LECTURE, TREE_DIAMETER_LECTURE, TREE_CENTROID_LECTURE, TREE_CENTER_LECTURE, TREE_DP_LECTURE, TREE_KNAPSACK_LECTURE,
     SEGMENT_TREE_LECTURE, TRIE_LECTURE, HASH_LECTURE, UNION_FIND_LECTURE,
-    BFS_BASIC_LECTURE, BFS_SHORTEST_PATH_LECTURE, BFS_STATE_SPACE_LECTURE, BFS_FLOOD_FILL_LECTURE, BFS_TOPO_SORT_LECTURE, BFS_BIPARTITE_LECTURE, BFS_MULTI_SOURCE_LECTURE
+    BFS_BASIC_LECTURE, BFS_SHORTEST_PATH_LECTURE, BFS_STATE_SPACE_LECTURE, BFS_FLOOD_FILL_LECTURE, BFS_TOPO_SORT_LECTURE, BFS_BIPARTITE_LECTURE, BFS_MULTI_SOURCE_LECTURE,
+    DFS_BASIC_LECTURE, DFS_CONNECT_LECTURE, DFS_PERM_LECTURE, DFS_MAZE_LECTURE, DFS_NQUEENS_LECTURE, DFS_BAG_LECTURE, DFS_GRAPH_ALGO_LECTURE, DFS_PRUNING_LECTURE
 } from '../utils/lectureData';
 import Visualizer from './Visualizer';
 
@@ -16,11 +19,57 @@ interface Props {
   theme?: Theme;
 }
 
+// Helper: Decode Base64 string to Uint8Array
+function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Helper: Decode raw PCM data to AudioBuffer
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number = 24000,
+  numChannels: number = 1,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+// Helper: Clean Markdown to plain text for better speech
+const cleanMarkdownForSpeech = (markdown: string): string => {
+  return markdown
+    .replace(/[#*`]/g, '') // Remove #, *, `
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links, keep text
+    .replace(/\n+/g, '. ') // Replace newlines with pauses
+    .trim();
+};
+
 const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [quizSelected, setQuizSelected] = useState<number | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string>('');
   const [codeAnswers, setCodeAnswers] = useState<Record<string, string>>({});
+
+  // Audio State
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   let steps: LectureStep[] = [];
   
@@ -54,6 +103,16 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
       case 'bfs_bipartite': steps = BFS_BIPARTITE_LECTURE; break;
       case 'bfs_multi': steps = BFS_MULTI_SOURCE_LECTURE; break;
 
+      // DFS Module
+      case 'dfs_basic': steps = DFS_BASIC_LECTURE; break;
+      case 'dfs_connect': steps = DFS_CONNECT_LECTURE; break;
+      case 'dfs_perm': steps = DFS_PERM_LECTURE; break;
+      case 'dfs_maze': steps = DFS_MAZE_LECTURE; break;
+      case 'dfs_nqueens': steps = DFS_NQUEENS_LECTURE; break;
+      case 'dfs_bag': steps = DFS_BAG_LECTURE; break;
+      case 'dfs_graph_algo': steps = DFS_GRAPH_ALGO_LECTURE; break;
+      case 'dfs_pruning': steps = DFS_PRUNING_LECTURE; break;
+
       default: steps = [];
   }
 
@@ -65,6 +124,99 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   };
   
   const isLastStep = currentStepIdx === steps.length - 1;
+
+  // Stop audio when component unmounts or step changes
+  useEffect(() => {
+    stopAudio();
+    return () => stopAudio();
+  }, [currentStepIdx, topic]);
+
+  const stopAudio = () => {
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.stop();
+      } catch (e) {
+        // Ignore errors if already stopped
+      }
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+    setIsPlaying(false);
+    setIsAudioLoading(false);
+  };
+
+  const playAudio = async () => {
+    if (isPlaying) {
+      stopAudio();
+      return;
+    }
+
+    setIsAudioLoading(true);
+
+    try {
+      // 1. Initialize API
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) {
+        alert("API Key not found in environment.");
+        setIsAudioLoading(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
+
+      // 2. Prepare Text
+      const textToSay = cleanMarkdownForSpeech(currentStep.title + ". " + currentStep.content);
+
+      // 3. Request TTS
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: textToSay }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Voices: Puck, Charon, Kore, Fenrir, Zephyr
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) throw new Error("No audio data returned");
+
+      // 4. Decode and Play
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      const ctx = audioContextRef.current;
+      
+      // Resume context if suspended (browser autoplay policy)
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      const audioBuffer = await decodeAudioData(
+        decodeBase64(base64Audio),
+        ctx,
+        24000,
+        1
+      );
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+      source.onended = () => setIsPlaying(false);
+      
+      audioSourceRef.current = source;
+      source.start();
+      setIsPlaying(true);
+
+    } catch (error) {
+      console.error("TTS Error:", error);
+      alert("语音生成失败，请稍后再试。");
+    } finally {
+      setIsAudioLoading(false);
+    }
+  };
 
   const handleNext = () => {
     if (currentStepIdx < steps.length - 1) {
@@ -220,8 +372,16 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
           
           <div className="bg-gray-800/50 p-6 border-b border-gray-700 flex justify-between items-center backdrop-blur-sm">
              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     {currentStep.title}
+                    <button 
+                      onClick={playAudio}
+                      disabled={isAudioLoading}
+                      className={`p-1.5 rounded-full transition-all ${isPlaying ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}
+                      title={isPlaying ? "停止朗读" : "朗读本页内容"}
+                    >
+                       {isAudioLoading ? <Loader className="w-5 h-5 animate-spin" /> : isPlaying ? <StopCircle className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                    </button>
                 </h2>
                 <span className="text-xs text-gray-400 font-mono mt-1 block">Step {currentStepIdx + 1} of {steps.length}</span>
              </div>

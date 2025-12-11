@@ -1,11 +1,10 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, RotateCcw, Plus, GitBranch, Zap, ArrowDown, MoveHorizontal, Search, RefreshCw, MousePointerClick, Check, Hash, Grid as GridIcon, Layers } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, GitBranch, Zap, ArrowDown, MoveHorizontal, Search, RefreshCw, MousePointerClick, Check, Hash, Grid as GridIcon, Layers, Crown, Footprints, Gauge } from 'lucide-react';
 import { TreeNode, LogStep, CourseLevel, Topic, HashItem, GraphNode, GraphEdge, GridCell, Theme } from '../types';
 import { generateTreeLayout, simulateQuery, simulatePointUpdate, simulateRangeUpdate } from '../utils/treeUtils';
-import { generateTrieLayout, generateHashState, generateUFNodes, generateACLayout, calculateKMPNext, transformManacherString, generateTreapLayout, generateDemoTree, generateBFSGrid, generateDAG, generateBipartiteGraph } from '../utils/visualizerHelpers';
+import { generateTrieLayout, generateHashState, generateUFNodes, generateACLayout, calculateKMPNext, transformManacherString, generateTreapLayout, generateDemoTree, generateBFSGrid, generateDAG, generateBipartiteGraph, generateNQueensBoard, generateCycleGraph } from '../utils/visualizerHelpers';
 
 const DEFAULT_ARRAY = [1, 3, 5, 7, 9, 11, 13, 15];
 
@@ -69,9 +68,16 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   const [resultMessage, setResultMessage] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
   
+  // Animation Control State
+  const [isPaused, setIsPaused] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const pausedRef = useRef(false);
+  const speedRef = useRef(1);
+  const stopRef = useRef(false);
+
   const colors = VIS_THEME[theme];
 
-  // NEW: Queue State for Visualization
+  // NEW: Queue/Stack State for Visualization
   const [queueState, setQueueState] = useState<(number | string)[]>([]);
 
   // Existing Topic States
@@ -101,9 +107,11 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   
-  // BFS Grid State
+  // Grid State (BFS / DFS Maze / N-Queens)
   const [gridState, setGridState] = useState<GridCell[][]>([]);
   const [gridColorMap, setGridColorMap] = useState<Record<string, string>>({}); // "r-c" -> color
+  // Special State for N-Queens
+  const [queenCells, setQueenCells] = useState<Record<string, string>>({}); // "r-c" -> "Q" or "X"
 
   // Tree Algo State
   const [treeDistances, setTreeDistances] = useState<Record<number, number>>({});
@@ -132,7 +140,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
     if (topic === 'balanced_tree') setTreapNodes(generateTreapLayout(treapData));
 
     // Graph Algos
-    if (['tree_diameter', 'tree_centroid', 'tree_center', 'tree_dp', 'tree_knapsack', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_multi'].includes(topic!)) {
+    if (['tree_diameter', 'tree_centroid', 'tree_center', 'tree_dp', 'tree_knapsack', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_multi', 'dfs_basic', 'dfs_connect'].includes(topic!)) {
         const {nodes, edges} = generateDemoTree();
         setGraphNodes(nodes);
         setGraphEdges(edges);
@@ -148,8 +156,14 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
         const {nodes, edges} = generateBipartiteGraph(true);
         setGraphNodes(nodes);
         setGraphEdges(edges);
-    } else if (topic === 'bfs_flood') {
+    } else if (topic === 'bfs_flood' || topic === 'dfs_maze') {
         setGridState(generateBFSGrid(6, 10));
+    } else if (topic === 'dfs_nqueens') {
+        setGridState(generateNQueensBoard(4)); // Default 4x4
+    } else if (topic === 'dfs_graph_algo') {
+        const {nodes, edges} = generateCycleGraph();
+        setGraphNodes(nodes);
+        setGraphEdges(edges);
     } else if (['mst', 'shortest_path', 'tarjan', 'diff_constraints'].includes(topic!)) {
          setGraphNodes([
             {id: 1, x: 200, y: 100, label: 'A'},
@@ -173,6 +187,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   }, [level, topic, externalData, stData, trieWords, hashData, ufParent, treapData]);
 
   const handleReset = () => {
+    stopRef.current = true; // Signal stop to any running animation
     setLogs([]);
     setResultMessage('');
     setActiveNodeId(null);
@@ -183,8 +198,15 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
     setTreeComponents({});
     setNodeColors({});
     setGridColorMap({});
-    setQueueState([]); // Reset queue
-    if (topic === 'bfs_flood') setGridState(generateBFSGrid(6, 10));
+    setQueenCells({});
+    setQueueState([]); // Reset queue/stack
+    
+    // Reset Playback Controls
+    setIsPaused(false);
+    pausedRef.current = false;
+    
+    if (topic === 'bfs_flood' || topic === 'dfs_maze') setGridState(generateBFSGrid(6, 10));
+    if (topic === 'dfs_nqueens') setGridState(generateNQueensBoard(4));
     if (topic === 'segment_tree') {
        setStNodes(generateTreeLayout(stData, level === 'expert' ? 'MAX' : 'SUM'));
     }
@@ -194,9 +216,26 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   };
 
   const runAnimation = async (steps: LogStep[]) => {
+      stopRef.current = false; // Allow running
       setIsAnimating(true);
       setLogs([]);
+      
       for (let i = 0; i < steps.length; i++) {
+          // 1. Check Stop Signal
+          if (stopRef.current) {
+              setIsAnimating(false);
+              return;
+          }
+
+          // 2. Check Pause Signal
+          while (pausedRef.current) {
+              if (stopRef.current) {
+                  setIsAnimating(false);
+                  return;
+              }
+              await new Promise(r => setTimeout(r, 100)); // Poll every 100ms
+          }
+
           const step = steps[i];
           setActiveNodeId(step.nodeId);
           setHighlightType(step.highlight);
@@ -205,27 +244,225 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
               setQueueState(step.queue);
           }
           
-          // Custom handlers for specific BFS visual updates
+          // Custom handlers for specific visual updates
           if (topic === 'bfs_flood' && typeof step.nodeId === 'string') {
                setGridColorMap(prev => ({...prev, [step.nodeId as string]: step.highlight === 'visiting' ? '#f59e0b' : '#3b82f6'}));
           }
+          if (topic === 'dfs_maze' && typeof step.nodeId === 'string') {
+               // Red for current visit/dead end, Blue for confirmed path
+               const color = step.highlight === 'visiting' ? '#ef4444' : (step.highlight === 'backtrack' ? '#6b7280' : '#3b82f6');
+               setGridColorMap(prev => ({...prev, [step.nodeId as string]: color}));
+          }
+          if (topic === 'dfs_nqueens' && typeof step.nodeId === 'string') {
+              if (step.message.includes('放置')) setQueenCells(prev => ({...prev, [step.nodeId as string]: 'Q'}));
+              if (step.message.includes('回溯') || step.message.includes('移除')) {
+                  setQueenCells(prev => {
+                      const next = {...prev};
+                      delete next[step.nodeId as string];
+                      return next;
+                  });
+              }
+              if (step.highlight === 'fail') {
+                  setQueenCells(prev => ({...prev, [step.nodeId as string]: 'X'}));
+              }
+          }
+          if (topic === 'dfs_graph_algo') {
+              // Cycle detection colors
+              const color = step.highlight === 'visiting' ? '#facc15' : (step.highlight === 'found' ? '#10b981' : (step.highlight === 'fail' ? '#ef4444' : '#3b82f6'));
+              setNodeColors(prev => ({...prev, [Number(step.nodeId)]: color}));
+          }
+
           if (topic === 'bfs_topo' && step.highlight === 'found') {
                setNodeColors(prev => ({...prev, [Number(step.nodeId)]: '#10b981'}));
           }
-           if (topic === 'bfs_bipartite') {
-              // message usually contains "Color x Black"
+          if (topic === 'bfs_bipartite') {
               const color = step.message.includes('黑色') ? '#1f2937' : '#f3f4f6';
               setNodeColors(prev => ({...prev, [Number(step.nodeId)]: color}));
           }
 
           setLogs(prev => [...prev, step]);
-          await new Promise(r => setTimeout(r, 600));
+          
+          // 3. Dynamic Delay based on Speed
+          // Base delay 600ms. Speed 1 -> 600ms, Speed 2 -> 300ms, Speed 0.5 -> 1200ms
+          const delay = 600 / speedRef.current;
+          await new Promise(r => setTimeout(r, delay));
       }
       setIsAnimating(false);
       if(onAnimationComplete) onAnimationComplete();
   };
 
-  // --- BFS HANDLERS ---
+  // --- DFS HANDLERS ---
+  const handleDFSBasic = async () => {
+      const steps: LogStep[] = [];
+      const visited = new Set<number>();
+      const stack: number[] = []; // Visual stack representation
+
+      const dfs = (u: number) => {
+          visited.add(u);
+          stack.push(u);
+          steps.push({nodeId: u, message: `访问节点 ${u}`, highlight: 'visiting', queue: [...stack]});
+
+          const neighbors = graphEdges.filter(e => e.u === u || e.v === u).map(e => e.u === u ? e.v : e.u);
+          for(const v of neighbors) {
+              if(!visited.has(v)) {
+                  steps.push({nodeId: v, message: `发现邻居 ${v}，深入递归`, highlight: 'found', queue: [...stack]});
+                  dfs(v);
+                  // Backtrack visual
+                  steps.push({nodeId: u, message: `从 ${v} 回溯到 ${u}`, highlight: 'backtrack', queue: [...stack]});
+              }
+          }
+          stack.pop();
+          steps.push({nodeId: u, message: `节点 ${u} 处理完毕，退栈`, highlight: 'normal', queue: [...stack]});
+      };
+
+      await runAnimation(steps);
+      dfs(1);
+      await runAnimation(steps); // Execute gathered steps
+  };
+
+  const handleDFSConnectivity = async () => {
+      const steps: LogStep[] = [];
+      const visited = new Set<number>();
+      let components = 0;
+      
+      const dfs = (u: number) => {
+          visited.add(u);
+          setNodeColors(prev => ({...prev, [u]: '#10b981'})); 
+          steps.push({nodeId: u, message: `访问节点 ${u} (属于连通块 ${components})`, highlight: 'found'});
+          
+          const neighbors = graphEdges.filter(e => e.u === u || e.v === u).map(e => e.u === u ? e.v : e.u);
+          for(const v of neighbors) {
+              if(!visited.has(v)) dfs(v);
+          }
+      };
+
+      for(const node of graphNodes) {
+          if(!visited.has(node.id)) {
+              components++;
+              steps.push({nodeId: node.id, message: `发现新的未访问节点 ${node.id}，连通块计数 +1`, highlight: 'visiting'});
+              dfs(node.id);
+          }
+      }
+      setResultMessage(`总连通块数量: ${components}`);
+      await runAnimation(steps);
+  };
+
+  const handleMazeDFS = async () => {
+      const steps: LogStep[] = [];
+      const rows = gridState.length;
+      const cols = gridState[0].length;
+      const visited = new Set<string>();
+      const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+      let found = false;
+
+      // Add simple stack visualization simulation
+      const stack: string[] = [];
+
+      const dfs = (r: number, c: number) => {
+          if(found) return;
+          visited.add(`${r}-${c}`);
+          stack.push(`(${r},${c})`);
+          steps.push({nodeId: `${r}-${c}`, message: `探索格子 (${r},${c})`, highlight: 'visiting', queue: [...stack]});
+          
+          if(r === rows-1 && c === cols-1) {
+              found = true;
+              steps.push({nodeId: `${r}-${c}`, message: `到达终点!`, highlight: 'found', queue: [...stack]});
+              stack.pop();
+              return;
+          }
+
+          for(const [dr, dc] of dirs) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >=0 && nr < rows && nc >= 0 && nc < cols && 
+                  gridState[nr][nc].type !== 'obstacle' && !visited.has(`${nr}-${nc}`)) {
+                      if(!found) {
+                          dfs(nr, nc);
+                          if(!found) steps.push({nodeId: `${r}-${c}`, message: `从 (${nr},${nc}) 回溯到 (${r},${c})`, highlight: 'backtrack', queue: [...stack]});
+                      }
+              }
+          }
+          stack.pop();
+      };
+
+      dfs(0, 0);
+      await runAnimation(steps);
+  };
+
+  const handleNQueens = async () => {
+      const n = 4; // Use 4 for demo
+      const steps: LogStep[] = [];
+      const board: number[] = new Array(n).fill(-1); // col index for each row
+      
+      const isSafe = (row: number, col: number) => {
+          for(let r=0; r<row; r++) {
+              const c = board[r];
+              if(c === col || Math.abs(row - r) === Math.abs(col - c)) return false;
+          }
+          return true;
+      };
+
+      const solve = (row: number) => {
+          if(row === n) return true;
+
+          for(let col=0; col<n; col++) {
+              steps.push({nodeId: `${row}-${col}`, message: `尝试在 (${row},${col}) 放置皇后`, highlight: 'visiting'});
+              if(isSafe(row, col)) {
+                  board[row] = col;
+                  steps.push({nodeId: `${row}-${col}`, message: `放置成功`, highlight: 'found'});
+                  if(solve(row + 1)) return true;
+                  board[row] = -1; // Backtrack
+                  steps.push({nodeId: `${row}-${col}`, message: `后续无解，回溯：移除 (${row},${col})`, highlight: 'backtrack'});
+              } else {
+                  steps.push({nodeId: `${row}-${col}`, message: `位置冲突 (攻击范围)`, highlight: 'fail'});
+              }
+          }
+          return false;
+      };
+
+      solve(0);
+      await runAnimation(steps);
+  };
+
+  const handleCycleDetect = async () => {
+      const steps: LogStep[] = [];
+      const visited = new Set<number>();
+      const pathSet = new Set<number>(); // Current recursion stack
+      let hasCycle = false;
+      const stack: number[] = [];
+
+      const dfs = (u: number) => {
+          visited.add(u);
+          pathSet.add(u);
+          stack.push(u);
+          steps.push({nodeId: u, message: `访问 ${u} (标记灰色/递归中)`, highlight: 'visiting', queue: [...stack]});
+
+          const neighbors = graphEdges.filter(e => e.u === u && e.directed).map(e => e.v);
+          for(const v of neighbors) {
+              if (pathSet.has(v)) {
+                  hasCycle = true;
+                  steps.push({nodeId: v, message: `遇到祖先节点 ${v}，发现环！`, highlight: 'fail', queue: [...stack]});
+                  stack.pop();
+                  pathSet.delete(u);
+                  return;
+              }
+              if (!visited.has(v)) {
+                  if(hasCycle) return;
+                  dfs(v);
+              }
+          }
+          
+          stack.pop();
+          pathSet.delete(u);
+          steps.push({nodeId: u, message: `节点 ${u} 递归结束 (标记黑色)`, highlight: 'found', queue: [...stack]});
+      };
+
+      // Start from 1
+      dfs(1);
+      await runAnimation(steps);
+      setResultMessage(hasCycle ? "检测到环!" : "无环");
+  };
+
+  // --- BFS HANDLERS (Keep existing) ---
   const handleBFSBasic = async () => {
       let startNodes = [1];
       if (topic === 'bfs_multi') startNodes = [1, 6];
@@ -277,7 +514,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                       steps.push({nodeId: `${currR}-${currC}`, message: `处理坐标 (${currR},${currC})`, highlight: 'found', queue: [...queueDisplay]});
                       
                       for(const [dr, dc] of dirs) {
-                          const nr = currR + dr, nc = currC + dc;
+                          const nr = currR + dr, nc = c + dc;
                           if (nr >=0 && nr < rows && nc >= 0 && nc < cols && 
                               gridState[nr][nc].type === 'land' && !visited.has(`${nr}-${nc}`)) {
                                   visited.add(`${nr}-${nc}`);
@@ -467,9 +704,105 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
 
   // --- RENDERERS ---
   const renderControls = () => {
+      // Common Playback Controls
+      const playbackControls = (
+          <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700 mb-4">
+              <button 
+                  onClick={() => {
+                      const newVal = !isPaused;
+                      setIsPaused(newVal);
+                      pausedRef.current = newVal;
+                  }}
+                  disabled={!isAnimating}
+                  className={`p-2 rounded-full transition ${!isAnimating ? 'text-gray-600 cursor-not-allowed' : 'text-white bg-primary hover:bg-blue-600'}`}
+                  title={isPaused ? "继续" : "暂停"}
+              >
+                  {isPaused ? <Play className="w-5 h-5 fill-current" /> : <Pause className="w-5 h-5 fill-current" />}
+              </button>
+
+              <div className="flex items-center gap-2">
+                  <Gauge className="w-4 h-4 text-gray-400" />
+                  <div className="flex bg-gray-900 rounded p-1 border border-gray-700">
+                      {[0.5, 1, 2, 4].map(s => (
+                          <button
+                              key={s}
+                              onClick={() => {
+                                  setSpeed(s);
+                                  speedRef.current = s;
+                              }}
+                              className={`px-2 py-1 text-xs rounded transition ${speed === s ? 'bg-gray-700 text-white font-bold' : 'text-gray-500 hover:text-gray-300'}`}
+                          >
+                              {s}x
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      );
+
+      // DFS CONTROLS
+      if (topic === 'dfs_basic' || topic === 'dfs_connect') {
+          return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Zap className="w-3 h-3"/> DFS 操作</div>
+                      <button onClick={topic === 'dfs_basic' ? handleDFSBasic : handleDFSConnectivity} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>{topic === 'dfs_basic' ? 'Start DFS Recursion' : 'Count Components'}</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'dfs_maze') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Footprints className="w-3 h-3"/> 迷宫操作</div>
+                      <button onClick={handleMazeDFS} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Start Maze DFS</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'dfs_nqueens') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Crown className="w-3 h-3"/> N-Queens</div>
+                      <button onClick={handleNQueens} disabled={isAnimating} className="w-full bg-purple-600 hover:bg-purple-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Start 4-Queens</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'dfs_graph_algo') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><RefreshCw className="w-3 h-3"/> 环检测</div>
+                      <button onClick={handleCycleDetect} disabled={isAnimating} className="w-full bg-red-600 hover:bg-red-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Detect Cycle</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+
+      // BFS CONTROLS
       if (topic === 'bfs_basic' || topic === 'bfs_shortest' || topic === 'bfs_state' || topic === 'bfs_multi') {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Zap className="w-3 h-3"/> BFS 控制</div>
                       <button onClick={handleBFSBasic} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
@@ -483,6 +816,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (topic === 'bfs_flood') {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><GridIcon className="w-3 h-3"/> Flood Fill</div>
                       <button onClick={handleBFSFloodFill} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
@@ -496,6 +830,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (topic === 'bfs_topo') {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Layers className="w-3 h-3"/> 拓扑排序</div>
                       <button onClick={handleTopoSort} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
@@ -509,6 +844,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (topic === 'bfs_bipartite') {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><GitBranch className="w-3 h-3"/> 二分图判定</div>
                       <button onClick={handleBipartite} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
@@ -524,6 +860,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (topic === 'segment_tree') {
           return (
               <div className="space-y-4">
+                  {playbackControls}
                   {/* Query */}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Search className="w-3 h-3"/> 区间查询</div>
@@ -578,6 +915,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (['tree_diameter', 'tree_center'].includes(topic!)) {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><MoveHorizontal className="w-3 h-3"/> 树的直径 BFS</div>
                       <div className="space-y-2">
@@ -599,6 +937,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       if (topic === 'tree_centroid') {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><GitBranch className="w-3 h-3"/> 验证重心</div>
                       <div className="flex gap-2 items-center mb-2">
@@ -616,6 +955,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
        if (['tree_dp', 'tree_knapsack'].includes(topic!)) {
            return (
               <div className="space-y-4">
+                  {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Hash className="w-3 h-3"/> 树形 DP</div>
                       <button onClick={handleTreeDP} disabled={isAnimating} className="w-full bg-green-600 hover:bg-green-500 text-white p-2 rounded text-xs flex justify-between">
@@ -627,37 +967,35 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
            );
       }
 
-      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints'].includes(topic!)) {
-          return <div className="text-gray-400 text-sm italic p-2 border border-dashed border-gray-700 rounded">Experiments available in Lecture Mode steps.</div>
+      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints', 'dfs_perm', 'dfs_bag', 'dfs_pruning'].includes(topic!)) {
+          return <div className="text-gray-400 text-sm italic p-2 border border-dashed border-gray-700 rounded">Interactive demos available in Lecture Steps.</div>
       }
       
       return <div className="text-gray-500 text-sm">Controls not available for this mode yet.</div>;
   };
 
-  const renderCanvas = () => {
-      // 1. MANACHER & KMP Placeholders (assumed managed by lecture steps mainly)
-      if (topic === 'manacher') return <div className="p-4 text-center text-gray-500">Manacher Visuals Active in Lecture</div>;
-      if (topic === 'kmp') return <div className="p-4 text-center text-gray-500">KMP Visuals Active in Lecture</div>;
-
-      const queueVisual = (
-        <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-gray-600 shadow-xl overflow-hidden z-20">
-            <div className="flex justify-between items-center mb-2">
+  // NEW: Render Queue in a dedicated bottom bar
+  const renderQueue = () => {
+    // If empty and not animating, maybe hide? Or keep for consistency. Keeping it is better context.
+    return (
+        <div className="h-20 bg-gray-900/80 border-t border-gray-700 p-2 shrink-0 flex flex-col justify-center backdrop-blur-sm">
+            <div className="flex justify-between items-center mb-1 px-2">
                 <div className="text-xs text-gray-400 font-mono uppercase tracking-wider flex items-center gap-2">
                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
                    队列 (Queue) [Front → Rear]
                 </div>
                 <span className="text-xs text-gray-500">{queueState.length} items</span>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar min-h-[30px] items-center">
+            <div className="flex gap-2 overflow-x-auto pb-1 px-2 custom-scrollbar items-center h-full">
                 <AnimatePresence mode="popLayout">
                 {queueState.map((item, i) => (
                     <motion.div 
-                        key={`${item}-${i}`} // Use index to ensure uniqueness for duplicate values if any
+                        key={`${item}-${i}`} 
                         layout
                         initial={{ opacity: 0, scale: 0.8, x: 20 }}
                         animate={{ opacity: 1, scale: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                        className="bg-gray-800 border border-gray-600 text-white px-3 py-1.5 rounded text-xs font-mono font-bold shrink-0 shadow-sm"
+                        className="bg-gray-800 border border-gray-600 text-white px-3 py-1.5 rounded text-xs font-mono font-bold shrink-0 shadow-sm whitespace-nowrap"
                     >
                         {item}
                     </motion.div>
@@ -666,33 +1004,52 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                 {queueState.length === 0 && <span className="text-gray-600 text-xs italic ml-1">Empty</span>}
             </div>
         </div>
-      );
+    );
+  };
 
-      // 2. GRID RENDERER (Flood Fill)
-      if (topic === 'bfs_flood') {
+  const renderCanvas = () => {
+      // 1. MANACHER & KMP Placeholders (assumed managed by lecture steps mainly)
+      if (topic === 'manacher') return <div className="p-4 text-center text-gray-500">Manacher Visuals Active in Lecture</div>;
+      if (topic === 'kmp') return <div className="p-4 text-center text-gray-500">KMP Visuals Active in Lecture</div>;
+
+      // REMOVED: Horizontal Queue Visual Overlay
+
+      // 2. GRID RENDERER (Flood Fill / Maze / N-Queens)
+      if (topic === 'bfs_flood' || topic === 'dfs_maze' || topic === 'dfs_nqueens') {
           return (
              <div className="relative w-full h-full">
                  <svg className="w-full h-full" viewBox="0 0 800 400">
                      {gridState.map((row, r) => row.map((cell, c) => (
-                         <rect 
-                            key={`${r}-${c}`}
-                            x={100 + c * 40}
-                            y={50 + r * 40}
-                            width={35}
-                            height={35}
-                            fill={cell.type === 'obstacle' ? colors.gridObstacle : (gridColorMap[`${r}-${c}`] || colors.gridLand)}
-                            stroke={colors.edge}
-                            rx={4}
-                         />
+                         <g key={`${r}-${c}`}>
+                             <rect 
+                                x={200 + c * 50}
+                                y={50 + r * 50}
+                                width={45}
+                                height={45}
+                                fill={
+                                    topic === 'dfs_nqueens' 
+                                        ? ((r+c)%2===0 ? '#334155' : '#475569') // Chessboard pattern
+                                        : (cell.type === 'obstacle' ? colors.gridObstacle : (gridColorMap[`${r}-${c}`] || colors.gridLand))
+                                }
+                                stroke={colors.edge}
+                                rx={4}
+                             />
+                             {/* N-Queens Specifics */}
+                             {topic === 'dfs_nqueens' && queenCells[`${r}-${c}`] === 'Q' && (
+                                 <text x={200 + c * 50 + 22} y={50 + r * 50 + 30} fontSize="30" textAnchor="middle" fill="#fbbf24">♛</text>
+                             )}
+                             {topic === 'dfs_nqueens' && queenCells[`${r}-${c}`] === 'X' && (
+                                 <text x={200 + c * 50 + 22} y={50 + r * 50 + 32} fontSize="30" textAnchor="middle" fill="#ef4444">✕</text>
+                             )}
+                         </g>
                      )))}
                  </svg>
-                 {queueVisual}
              </div>
           )
       }
 
       // 3. GRAPH RENDERER
-      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_topo', 'bfs_bipartite', 'bfs_multi'].includes(topic!)) {
+      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_topo', 'bfs_bipartite', 'bfs_multi', 'dfs_basic', 'dfs_connect', 'dfs_graph_algo'].includes(topic!)) {
           return (
               <div className="relative w-full h-full">
                   <svg className="w-full h-full" viewBox="0 0 800 400">
@@ -743,8 +1100,6 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                           </g>
                       ))}
                   </svg>
-                  {/* Show Queue only for BFS Modules */}
-                  {topic?.startsWith('bfs') && queueVisual}
               </div>
           );
       }
@@ -791,7 +1146,6 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                           </g>
                       ))}
                   </svg>
-                  {topic === 'tree_diameter' && queueVisual}
               </div>
            )
       }
@@ -875,8 +1229,52 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
         </div>
       </div>
 
-      <div className="flex-1 bg-dark-lighter rounded-xl border border-gray-700 shadow-2xl overflow-hidden relative">
-         {renderCanvas()}
+      <div className="flex-1 bg-dark-lighter rounded-xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col">
+         <div className="flex-1 flex flex-row overflow-hidden relative min-h-0">
+            <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-dark-lighter to-dark/50">
+                {renderCanvas()}
+            </div>
+            
+            {/* Vertical Stack Sidebar for DFS */}
+            {topic?.startsWith('dfs') && (
+                <div className="w-40 border-l border-gray-700 bg-black/20 flex flex-col shrink-0">
+                    <div className="p-3 bg-gray-800/50 border-b border-gray-700 font-bold text-xs text-gray-400 text-center uppercase tracking-wider flex items-center justify-center gap-2">
+                        <Layers className="w-4 h-4" /> 递归栈
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar relative flex flex-col">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                            {/* Reverse to show Top at Top */}
+                            {[...queueState].reverse().map((item, i) => (
+                                <motion.div
+                                    key={`${item}-${queueState.length - 1 - i}`}
+                                    layout
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                                    className="bg-purple-600/20 border border-purple-500 text-purple-200 p-2.5 rounded-md text-center text-sm font-mono shadow-sm flex items-center justify-center relative group shrink-0"
+                                >
+                                    <span className="z-10">{item}</span>
+                                    {i === 0 && (
+                                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-400 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
+                                    )}
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                        {queueState.length === 0 && (
+                            <div className="text-gray-600 text-xs text-center mt-10 italic">
+                                Stack Empty
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-2 border-t border-gray-700 text-[10px] text-gray-500 text-center">
+                        Top (Current)
+                    </div>
+                </div>
+            )}
+         </div>
+
+         {/* Bottom Area: BFS Queue */}
+         {(topic?.startsWith('bfs') || topic === 'tree_diameter') && renderQueue()}
       </div>
     </div>
   );

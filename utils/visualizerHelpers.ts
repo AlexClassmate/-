@@ -1,4 +1,5 @@
 
+
 import { TreeNode, LogStep, HashItem, GraphNode, GraphEdge, GridCell } from '../types';
 
 // --- TRIE UTILS ---
@@ -377,3 +378,40 @@ export const generateBipartiteGraph = (isBipartite: boolean): { nodes: GraphNode
 
     return { nodes, edges };
 };
+
+// --- DFS UTILS ---
+export const generateNQueensBoard = (n: number): GridCell[][] => {
+    const grid: GridCell[][] = [];
+    for (let r = 0; r < n; r++) {
+        const rowArr: GridCell[] = [];
+        for (let c = 0; c < n; c++) {
+            rowArr.push({
+                row: r,
+                col: c,
+                type: 'land', // Default empty
+                visited: false
+            });
+        }
+        grid.push(rowArr);
+    }
+    return grid;
+}
+
+export const generateCycleGraph = (): { nodes: GraphNode[], edges: GraphEdge[] } => {
+    const nodes: GraphNode[] = [
+        { id: 1, x: 100, y: 200, label: '1' },
+        { id: 2, x: 250, y: 100, label: '2' },
+        { id: 3, x: 400, y: 200, label: '3' },
+        { id: 4, x: 250, y: 300, label: '4' },
+        { id: 5, x: 550, y: 200, label: '5' },
+    ];
+    // 1->2->3->4->2 (Cycle 2-3-4-2)
+    const edges: GraphEdge[] = [
+        { u: 1, v: 2, weight: 0, directed: true },
+        { u: 2, v: 3, weight: 0, directed: true },
+        { u: 3, v: 4, weight: 0, directed: true },
+        { u: 4, v: 2, weight: 0, directed: true }, // Cycle back to 2
+        { u: 3, v: 5, weight: 0, directed: true },
+    ];
+    return { nodes, edges };
+}

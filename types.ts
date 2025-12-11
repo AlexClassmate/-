@@ -2,7 +2,7 @@
 
 export type CourseLevel = 'basic' | 'advanced' | 'expert';
 
-export type Category = 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module';
+export type Category = 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module';
 
 export type Theme = 'slate' | 'light' | 'black' | 'navy';
 
@@ -18,7 +18,9 @@ export type Topic =
   // Algorithm
   | 'sweep_line'
   // BFS Module
-  | 'bfs_basic' | 'bfs_shortest' | 'bfs_state' | 'bfs_flood' | 'bfs_topo' | 'bfs_bipartite' | 'bfs_multi';
+  | 'bfs_basic' | 'bfs_shortest' | 'bfs_state' | 'bfs_flood' | 'bfs_topo' | 'bfs_bipartite' | 'bfs_multi'
+  // DFS Module (NEW)
+  | 'dfs_basic' | 'dfs_connect' | 'dfs_perm' | 'dfs_maze' | 'dfs_nqueens' | 'dfs_bag' | 'dfs_graph_algo' | 'dfs_pruning';
 
 // Generic tree node (Segment Tree / Trie / UF Tree / AC Automaton / Treap)
 export interface TreeNode {
@@ -60,7 +62,7 @@ export interface GraphEdge {
 export interface GridCell {
   row: number;
   col: number;
-  type: 'land' | 'water' | 'obstacle';
+  type: 'land' | 'water' | 'obstacle' | 'path' | 'start' | 'end'; // Added path/start/end
   visited?: boolean;
   distance?: number;
   group?: number;
@@ -78,8 +80,9 @@ export type OperationType = 'IDLE' | 'BUILD' | 'UPDATE' | 'QUERY';
 export interface LogStep {
   nodeId: number | string; // Support string IDs for hash keys
   message: string;
-  highlight: 'visiting' | 'found' | 'updating' | 'partial' | 'pushdown' | 'normal' | 'fail' | 'match' | 'mismatch' | 'mirror'; // Added mirror for Manacher
-  queue?: (number | string)[]; // NEW: Snapshot of the queue state
+  highlight: 'visiting' | 'found' | 'updating' | 'partial' | 'pushdown' | 'normal' | 'fail' | 'match' | 'mismatch' | 'mirror' | 'backtrack'; // Added backtrack
+  queue?: (number | string)[]; // Snapshot of the queue state
+  stack?: (number | string)[]; // Snapshot of the stack state (for DFS)
 }
 
 export interface QuizQuestion {

@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette } from 'lucide-react';
+import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone } from 'lucide-react';
 import Visualizer from './components/Visualizer';
 import StorySection from './components/StorySection';
 import QuizSection from './components/QuizSection';
@@ -15,6 +14,21 @@ type Tab = 'story' | 'visualizer' | 'code' | 'quiz' | 'guided' | 'practice' | 'l
 
 // Navigation Structure
 const CATEGORIES: { id: Category; label: string; icon: any; topics: { id: Topic; label: string }[] }[] = [
+  {
+    id: 'dfs_module',
+    label: '深度优先搜索 (DFS)',
+    icon: GitMerge,
+    topics: [
+      { id: 'dfs_basic', label: 'DFS 基础：不撞南墙不回头' },
+      { id: 'dfs_connect', label: '应用一：连通性检测' },
+      { id: 'dfs_perm', label: '应用二：排列组合 (回溯)' },
+      { id: 'dfs_maze', label: '应用三：迷宫与路径' },
+      { id: 'dfs_nqueens', label: '应用四：N 皇后问题' },
+      { id: 'dfs_bag', label: '应用五：子集和与背包' },
+      { id: 'dfs_graph_algo', label: '应用六：图论 (环与拓扑)' },
+      { id: 'dfs_pruning', label: '应用七：剪枝技巧' }
+    ]
+  },
   {
     id: 'bfs_module',
     label: '广度优先搜索 (BFS)',
@@ -95,7 +109,7 @@ const App: React.FC = () => {
   const [currentTopic, setCurrentTopic] = useState<Topic>('segment_tree');
   const [currentLevel, setCurrentLevel] = useState<CourseLevel>('basic');
   const [activeTab, setActiveTab] = useState<Tab>('story');
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'bfs_module': true, 'data_structure': true});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'dfs_module': true, 'bfs_module': false});
   
   // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>('slate');
@@ -115,6 +129,27 @@ const App: React.FC = () => {
     // Legacy topics support full suite. New ones default to Lecture Mode.
     const legacy = ['segment_tree', 'trie', 'hash', 'union_find'];
     return !legacy.includes(topic);
+  };
+
+  const getAvailableTabs = (topicId: Topic) => {
+    if (isLectureOnly(topicId)) {
+        return [
+            { id: 'lecture', label: '讲课模式', icon: School },
+            { id: 'visualizer', label: '算法演示', icon: Activity }
+        ] as { id: Tab, label: string, icon: any }[];
+    }
+    const tabs: { id: Tab, label: string, icon: any }[] = [
+        { id: 'story', label: '情景学习', icon: BookOpen },
+        { id: 'lecture', label: '讲课模式', icon: School },
+        { id: 'visualizer', label: '可视化', icon: Activity },
+        { id: 'guided', label: '引导编程', icon: Terminal },
+        { id: 'code', label: '代码模板', icon: Code },
+        { id: 'quiz', label: '测验', icon: Trophy },
+    ];
+    if (topicId === 'segment_tree') {
+        tabs.push({ id: 'practice', label: 'P3372 真题', icon: Layers });
+    }
+    return tabs;
   };
 
   const renderContent = () => {
@@ -138,20 +173,6 @@ const App: React.FC = () => {
       default: return <StorySection level={currentLevel} topic={currentTopic} />;
     }
   };
-
-  const NavItem = ({ tab, label, icon: Icon }: { tab: Tab, label: string, icon: any }) => (
-    <button
-      onClick={() => setActiveTab(tab)}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${
-        activeTab === tab 
-          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-dark text-gray-100 flex flex-col font-sans overflow-hidden transition-colors duration-300">
@@ -196,9 +217,9 @@ const App: React.FC = () => {
       </nav>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <aside className="w-64 bg-dark-lighter border-r border-gray-800 flex flex-col shrink-0 h-full overflow-y-auto custom-scrollbar">
-          <div className="p-4 space-y-4">
+        {/* Sidebar Navigation (Merged) */}
+        <aside className="w-72 bg-dark-lighter border-r border-gray-800 flex flex-col shrink-0 h-full overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
              {CATEGORIES.map(cat => (
                  <div key={cat.id} className="space-y-1">
                     <button 
@@ -214,63 +235,64 @@ const App: React.FC = () => {
                     {openCategories[cat.id] && (
                         <div className="space-y-1 pl-2 border-l border-gray-700 ml-3">
                            {cat.topics.map(t => (
-                               <button 
-                                 key={t.id}
-                                 onClick={() => { 
-                                     setCurrentTopic(t.id); 
-                                     if(isLectureOnly(t.id)) setActiveTab('lecture');
-                                     else setActiveTab('story');
-                                 }}
-                                 className={`w-full text-left px-3 py-2 rounded text-sm transition ${currentTopic === t.id ? 'bg-primary/20 text-primary border border-primary/30' : 'text-gray-400 hover:bg-gray-800'}`}
-                               >
-                                  {t.label}
-                               </button>
+                               <div key={t.id}>
+                                   <button 
+                                     onClick={() => { 
+                                         setCurrentTopic(t.id); 
+                                         if(currentTopic !== t.id) {
+                                            // Default action when switching topic
+                                            if(isLectureOnly(t.id)) setActiveTab('lecture');
+                                            else setActiveTab('story');
+                                         }
+                                     }}
+                                     className={`w-full text-left px-3 py-2 rounded text-sm transition flex justify-between items-center ${currentTopic === t.id ? 'bg-primary/10 text-primary border border-primary/20' : 'text-gray-400 hover:bg-gray-800'}`}
+                                   >
+                                      {t.label}
+                                   </button>
+                                   
+                                   {/* Nested Tabs for Active Topic */}
+                                   {currentTopic === t.id && (
+                                       <div className="ml-3 mt-1 mb-2 space-y-0.5 pl-2 border-l border-gray-700/50">
+                                           {getAvailableTabs(t.id).map(tab => (
+                                               <button
+                                                   key={tab.id}
+                                                   onClick={() => setActiveTab(tab.id)}
+                                                   className={`flex items-center gap-2 px-3 py-1.5 text-xs w-full rounded transition-colors ${activeTab === tab.id ? 'text-white bg-gray-700 font-medium' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                                               >
+                                                   <tab.icon className={`w-3 h-3 ${activeTab === tab.id ? 'text-primary' : ''}`} />
+                                                   {tab.label}
+                                               </button>
+                                           ))}
+                                       </div>
+                                   )}
+                               </div>
                            ))}
                         </div>
                     )}
                  </div>
              ))}
           </div>
-        </aside>
 
-        {/* Secondary Sidebar (Tab Selection) */}
-        <div className="w-56 bg-dark border-r border-gray-800 flex flex-col p-4 shrink-0">
-            <div className="text-xs font-bold text-gray-500 uppercase px-2 mb-4 tracking-wider">
-               {isLectureOnly(currentTopic) ? 'Interactive Mode' : 'Learn & Practice'}
-            </div>
-            
-            <div className="space-y-1">
-               {isLectureOnly(currentTopic) ? (
-                   <>
-                      <NavItem tab="lecture" label="讲课模式" icon={School} />
-                      <NavItem tab="visualizer" label="算法演示" icon={Activity} />
-                   </>
-               ) : (
-                   <>
-                      <NavItem tab="story" label="情景学习" icon={BookOpen} />
-                      <NavItem tab="lecture" label="讲课模式" icon={School} />
-                      <NavItem tab="visualizer" label="可视化" icon={Activity} />
-                      <NavItem tab="guided" label="引导编程" icon={Terminal} />
-                      <NavItem tab="code" label="代码模板" icon={Code} />
-                      <NavItem tab="quiz" label="测验" icon={Trophy} />
-                      {currentTopic === 'segment_tree' && <NavItem tab="practice" label="P3372 真题" icon={Layers} />}
-                   </>
-               )}
-            </div>
-
-            {!isLectureOnly(currentTopic) && (
-                <div className="mt-auto pt-4 border-t border-gray-800">
-                    <div className="text-xs font-bold text-gray-500 mb-2 px-2">Difficulty</div>
-                    <div className="flex flex-col gap-1">
-                        {(['basic', 'advanced', 'expert'] as CourseLevel[]).map(l => (
-                            <button key={l} onClick={() => setCurrentLevel(l)} className={`text-left px-3 py-1.5 rounded text-xs capitalize ${currentLevel===l ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+          {/* Difficulty Selector (Moved to Footer) */}
+          {!isLectureOnly(currentTopic) && (
+            <div className="p-4 border-t border-gray-800 bg-black/10 shrink-0">
+                <div className="text-xs font-bold text-gray-500 mb-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                    <TrendingUp className="w-3 h-3" /> 难度选择 (Difficulty)
                 </div>
-            )}
-        </div>
+                <div className="grid grid-cols-3 gap-1 bg-gray-900/50 p-1 rounded-lg">
+                    {(['basic', 'advanced', 'expert'] as CourseLevel[]).map(l => (
+                        <button 
+                            key={l} 
+                            onClick={() => setCurrentLevel(l)} 
+                            className={`px-1 py-1.5 rounded text-[10px] capitalize font-medium transition-all text-center ${currentLevel===l ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {l}
+                        </button>
+                    ))}
+                </div>
+            </div>
+          )}
+        </aside>
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-dark transition-colors duration-300">
