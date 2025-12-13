@@ -1,7 +1,5 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Volume2, StopCircle, Loader, Copy } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Copy, XCircle } from 'lucide-react';
 import { Topic, LectureStep, Theme } from '../types';
 import { 
     AC_AUTOMATON_LECTURE, KMP_LECTURE, MANACHER_LECTURE, BALANCED_TREE_LECTURE,
@@ -20,57 +18,11 @@ interface Props {
   theme?: Theme;
 }
 
-// Helper: Decode Base64 string to Uint8Array
-function decodeBase64(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// Helper: Decode raw PCM data to AudioBuffer
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number = 24000,
-  numChannels: number = 1,
-): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
-// Helper: Clean Markdown to plain text for better speech
-const cleanMarkdownForSpeech = (markdown: string): string => {
-  return markdown
-    .replace(/[#*`]/g, '') // Remove #, *, `
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links, keep text
-    .replace(/\n+/g, '. ') // Replace newlines with pauses
-    .trim();
-};
-
 const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [quizSelected, setQuizSelected] = useState<number | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string>('');
   const [codeAnswers, setCodeAnswers] = useState<Record<string, string>>({});
-
-  // Audio State
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   // RESET STATE WHEN TOPIC CHANGES
   useEffect(() => {
@@ -78,7 +30,6 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
     setQuizSelected(null);
     setQuizFeedback('');
     setCodeAnswers({});
-    stopAudio();
   }, [topic]);
 
   let steps: LectureStep[] = [];
@@ -146,99 +97,6 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   
   const isLastStep = currentStepIdx === steps.length - 1;
 
-  // Stop audio when component unmounts or step changes
-  useEffect(() => {
-    stopAudio();
-    return () => stopAudio();
-  }, [currentStepIdx]);
-
-  const stopAudio = () => {
-    if (audioSourceRef.current) {
-      try {
-        audioSourceRef.current.stop();
-      } catch (e) {
-        // Ignore errors if already stopped
-      }
-      audioSourceRef.current.disconnect();
-      audioSourceRef.current = null;
-    }
-    setIsPlaying(false);
-    setIsAudioLoading(false);
-  };
-
-  const playAudio = async () => {
-    if (isPlaying) {
-      stopAudio();
-      return;
-    }
-
-    setIsAudioLoading(true);
-
-    try {
-      // 1. Initialize API
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        alert("API Key not found in environment.");
-        setIsAudioLoading(false);
-        return;
-      }
-      const ai = new GoogleGenAI({ apiKey });
-
-      // 2. Prepare Text
-      const textToSay = cleanMarkdownForSpeech(currentStep.title + ". " + currentStep.content);
-
-      // 3. Request TTS
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: textToSay }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Voices: Puck, Charon, Kore, Fenrir, Zephyr
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (!base64Audio) throw new Error("No audio data returned");
-
-      // 4. Decode and Play
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
-      const ctx = audioContextRef.current;
-      
-      // Resume context if suspended (browser autoplay policy)
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
-
-      const audioBuffer = await decodeAudioData(
-        decodeBase64(base64Audio),
-        ctx,
-        24000,
-        1
-      );
-
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      source.onended = () => setIsPlaying(false);
-      
-      audioSourceRef.current = source;
-      source.start();
-      setIsPlaying(true);
-
-    } catch (error) {
-      console.error("TTS Error:", error);
-      alert("语音生成失败，请稍后再试。");
-    } finally {
-      setIsAudioLoading(false);
-    }
-  };
-
   const handleNext = () => {
     if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx(prev => prev + 1);
@@ -305,42 +163,85 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
              const parts = problem.template.split(/(\{\{\d+\}\})/g);
              
              return (
-                 <div className="flex flex-col h-full animate-fade-in">
-                     <p className="mb-4 text-gray-300">{currentStep.content}</p>
-                     <div className="flex-1 bg-[#1e1e1e] p-6 rounded-xl border border-gray-700 font-mono text-sm overflow-auto shadow-inner whitespace-pre-wrap">
+                 <div className="flex flex-col h-full animate-fade-in gap-6">
+                     <p className="text-gray-300 shrink-0">{currentStep.content}</p>
+                     
+                     {/* Code Display Area */}
+                     <div className="flex-1 bg-[#1e1e1e] p-6 rounded-xl border border-gray-700 font-mono text-sm overflow-auto shadow-inner whitespace-pre-wrap leading-relaxed">
                          {parts.map((part, i) => {
                              const match = part.match(/\{\{(\d+)\}\}/);
                              if (match) {
                                  const id = parseInt(match[1]);
                                  const blank = problem.blanks.find(b => b.id === id)!;
                                  const userAnswer = codeAnswers[id];
+                                 const isCorrect = userAnswer && blank.options.find(o => o.value === userAnswer)?.isCorrect;
                                  
                                  if (userAnswer) {
-                                     return <span key={i} className="text-green-400 font-bold border-b border-green-500 mx-1">{userAnswer}</span>
+                                     return (
+                                         <span key={i} className={`font-bold border-b-2 mx-1 px-1 rounded transition-colors ${isCorrect ? 'text-green-400 border-green-500 bg-green-900/20' : 'text-red-400 border-red-500 bg-red-900/20'}`}>
+                                             {userAnswer}
+                                         </span>
+                                     );
                                  }
                                  
                                  return (
-                                     <div key={i} className="inline-block relative group mx-1 align-middle">
-                                         <button className="bg-gray-700 hover:bg-gray-600 text-yellow-300 px-2 rounded border border-gray-500">???</button>
-                                         <div className="absolute top-full left-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded shadow-xl z-20 hidden group-hover:block p-1 whitespace-normal">
-                                             <div className="text-xs text-gray-400 mb-1 px-2 py-1 border-b border-gray-700">{blank.question}</div>
-                                             {blank.options.map(opt => (
-                                                 <button 
-                                                    key={opt.value}
-                                                    onClick={() => {
-                                                        if(opt.isCorrect) setCodeAnswers(prev => ({...prev, [id]: opt.value}));
-                                                    }}
-                                                    className="w-full text-left px-2 py-1.5 text-xs hover:bg-primary/20 hover:text-primary rounded"
-                                                 >
-                                                     {opt.label}
-                                                 </button>
-                                             ))}
-                                         </div>
-                                     </div>
-                                 )
+                                     <span key={i} className="bg-yellow-500/20 text-yellow-300 border-b-2 border-yellow-500 mx-1 px-2 rounded animate-pulse">
+                                         ??{id + 1}??
+                                     </span>
+                                 );
                              }
                              return <span key={i} className="text-gray-300">{part}</span>
                          })}
+                     </div>
+
+                     {/* Questions Area - Static Layout */}
+                     <div className="bg-dark-lighter p-4 rounded-xl border border-gray-700 space-y-6 shrink-0">
+                         <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                             <Terminal className="w-4 h-4" /> 填空挑战 (Fill in the Blanks)
+                         </h4>
+                         <div className="grid gap-6 md:grid-cols-2">
+                             {problem.blanks.map((blank) => {
+                                 const userAnswer = codeAnswers[blank.id];
+                                 return (
+                                     <div key={blank.id} className="space-y-3">
+                                         <div className="text-sm text-white font-medium flex items-center gap-2">
+                                             <span className="bg-yellow-500/20 text-yellow-300 text-xs px-1.5 py-0.5 rounded border border-yellow-500/50 font-mono">
+                                                 ??{blank.id + 1}??
+                                             </span>
+                                             {blank.question}
+                                         </div>
+                                         <div className="grid grid-cols-1 gap-2">
+                                             {blank.options.map(opt => {
+                                                 const isSelected = userAnswer === opt.value;
+                                                 let btnClass = "text-left px-3 py-2 rounded text-xs border transition-all ";
+                                                 
+                                                 if (isSelected) {
+                                                     if (opt.isCorrect) btnClass += "bg-green-600 border-green-500 text-white font-bold shadow-sm";
+                                                     else btnClass += "bg-red-600 border-red-500 text-white font-bold shadow-sm";
+                                                 } else {
+                                                     btnClass += "bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500";
+                                                 }
+
+                                                 return (
+                                                     <button 
+                                                        key={opt.value}
+                                                        onClick={() => {
+                                                            setCodeAnswers(prev => ({...prev, [blank.id]: opt.value}));
+                                                        }}
+                                                        className={btnClass}
+                                                     >
+                                                         <div className="flex justify-between items-center">
+                                                             <span>{opt.label}</span>
+                                                             {isSelected && (opt.isCorrect ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />)}
+                                                         </div>
+                                                     </button>
+                                                 );
+                                             })}
+                                         </div>
+                                     </div>
+                                 );
+                             })}
+                         </div>
                      </div>
                  </div>
              );
@@ -438,14 +339,6 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
              <div>
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     {currentStep.title}
-                    <button 
-                      onClick={playAudio}
-                      disabled={isAudioLoading}
-                      className={`p-1.5 rounded-full transition-all ${isPlaying ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}
-                      title={isPlaying ? "停止朗读" : "朗读本页内容"}
-                    >
-                       {isAudioLoading ? <Loader className="w-5 h-5 animate-spin" /> : isPlaying ? <StopCircle className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                    </button>
                 </h2>
                 <span className="text-xs text-gray-400 font-mono mt-1 block">Step {currentStepIdx + 1} of {steps.length}</span>
              </div>
