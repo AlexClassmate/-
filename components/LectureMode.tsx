@@ -1,11 +1,14 @@
+
+// ... (Imports same as before)
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Lightbulb, Copy, XCircle } from 'lucide-react';
-import { Topic, LectureStep, Theme } from '../types';
+import { CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Lightbulb, Copy, XCircle, Info } from 'lucide-react';
+import { Topic, LectureStep, Theme, CourseLevel } from '../types';
 import { 
     AC_AUTOMATON_LECTURE, KMP_LECTURE, MANACHER_LECTURE, BALANCED_TREE_LECTURE,
     MST_LECTURE, SHORTEST_PATH_LECTURE, TARJAN_LECTURE, DIFF_CONSTRAINTS_LECTURE,
     SWEEP_LINE_LECTURE, TREE_DIAMETER_LECTURE, TREE_CENTROID_LECTURE, TREE_CENTER_LECTURE, TREE_DP_LECTURE, TREE_KNAPSACK_LECTURE,
-    SEGMENT_TREE_LECTURE, TRIE_LECTURE, HASH_LECTURE, UNION_FIND_LECTURE,
+    SEGMENT_TREE_LECTURE, SEGMENT_TREE_MIN_LECTURE, SEG_BASIC_LECTURE, SEG_LAZY_LECTURE, SEG_RMQ_LECTURE,
+    TRIE_LECTURE, HASH_LECTURE, UNION_FIND_LECTURE,
     BFS_BASIC_LECTURE, BFS_SHORTEST_PATH_LECTURE, BFS_STATE_SPACE_LECTURE, BFS_FLOOD_FILL_LECTURE, BFS_TOPO_SORT_LECTURE, BFS_BIPARTITE_LECTURE, BFS_MULTI_SOURCE_LECTURE,
     DFS_BASIC_LECTURE, DFS_CONNECT_LECTURE, DFS_PERM_LECTURE, DFS_MAZE_LECTURE, DFS_NQUEENS_LECTURE, DFS_BAG_LECTURE, DFS_GRAPH_ALGO_LECTURE, DFS_PRUNING_LECTURE,
     RECURSION_FIB_LECTURE, RECURSION_HANOI_LECTURE, RECURSION_FRACTAL_LECTURE, RECURSION_PERM_LECTURE, RECURSION_SUBSET_LECTURE,
@@ -15,10 +18,11 @@ import Visualizer from './Visualizer';
 
 interface Props {
   topic: Topic;
+  level?: CourseLevel; // Added level prop
   theme?: Theme;
 }
 
-const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
+const LectureMode: React.FC<Props> = ({ topic, level = 'basic', theme = 'slate' }) => {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [quizSelected, setQuizSelected] = useState<number | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string>('');
@@ -36,13 +40,43 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   
   // MAPPING
   switch(topic) {
-      case 'segment_tree': steps = SEGMENT_TREE_LECTURE; break;
-      case 'trie': steps = TRIE_LECTURE; break;
-      case 'hash': steps = HASH_LECTURE; break;
-      case 'union_find': steps = UNION_FIND_LECTURE; break;
+      // Segment Tree
+      case 'seg_basic': steps = SEG_BASIC_LECTURE; break;
+      case 'seg_lazy': steps = SEG_LAZY_LECTURE; break;
+      case 'seg_rmq': steps = SEG_RMQ_LECTURE; break;
+      case 'seg_min': steps = SEGMENT_TREE_MIN_LECTURE; break;
+      case 'segment_tree': steps = SEG_BASIC_LECTURE; break; // Fallback
+
+      // Trie
+      case 'trie': 
+      case 'trie_basic':
+      case 'trie_count':
+      case 'trie_xor':
+          steps = TRIE_LECTURE; 
+          break;
+
+      // Hash
+      case 'hash': 
+      case 'hash_basic':
+      case 'hash_collision':
+      case 'hash_rolling':
+          steps = HASH_LECTURE; 
+          break;
+
+      // Union Find
+      case 'union_find': 
+      case 'uf_basic':
+      case 'uf_path':
+      case 'uf_enemy':
+          steps = UNION_FIND_LECTURE; 
+          break;
+
+      // String
       case 'ac_automaton': steps = AC_AUTOMATON_LECTURE; break;
       case 'kmp': steps = KMP_LECTURE; break;
       case 'manacher': steps = MANACHER_LECTURE; break;
+
+      // Graph/Tree/Algo ... (Rest same as before)
       case 'balanced_tree': steps = BALANCED_TREE_LECTURE; break;
       case 'mst': steps = MST_LECTURE; break;
       case 'shortest_path': steps = SHORTEST_PATH_LECTURE; break;
@@ -121,40 +155,121 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
     </div>
   );
 
+  // --- CUSTOM MARKDOWN RENDERER (Stable & Fast) ---
+  const parseInline = (text: string) => {
+    // Split by **bold** or `code`
+    const parts = text.split(/(\*\*.*?\*\*|`[^`]+`)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={i} className="bg-primary/10 text-primary-light border border-primary/20 px-1.5 py-0.5 rounded font-mono text-sm mx-1">{part.slice(1, -1)}</code>;
+        }
+        return part;
+    });
+  };
+
+  const renderMarkdown = (content: string) => {
+    const lines = content.split('\n');
+    const elements: React.ReactNode[] = [];
+    let inCodeBlock = false;
+    let codeLines: string[] = [];
+
+    lines.forEach((line, idx) => {
+        // Code Block Handling
+        if (line.trim().startsWith('```')) {
+            if (inCodeBlock) {
+                elements.push(
+                    <div key={`code-${idx}`} className="relative group my-4">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg blur opacity-50"></div>
+                        <pre className="relative bg-[#1e1e1e] p-4 rounded-lg overflow-x-auto border border-gray-700 text-sm font-mono leading-relaxed">
+                            <code className="text-gray-300">{codeLines.join('\n')}</code>
+                        </pre>
+                    </div>
+                );
+                codeLines = [];
+                inCodeBlock = false;
+            } else {
+                inCodeBlock = true;
+            }
+            return;
+        }
+        if (inCodeBlock) {
+            codeLines.push(line);
+            return;
+        }
+
+        // Headers
+        if (line.startsWith('### ')) {
+            elements.push(
+                <h3 key={idx} className="text-lg font-bold text-primary mt-4 mb-2 flex items-center gap-2">
+                    <div className="w-1.5 h-6 bg-primary rounded-full"></div>
+                    {parseInline(line.slice(4))}
+                </h3>
+            );
+            return;
+        }
+        if (line.startsWith('## ')) {
+             elements.push(<h2 key={idx} className="text-xl font-bold text-white mt-5 mb-3">{parseInline(line.slice(3))}</h2>);
+             return;
+        }
+
+        // List
+        if (line.trim().startsWith('- ')) {
+            elements.push(
+                <div key={idx} className="flex gap-2 mb-1 ml-4 text-gray-300">
+                    <span className="text-primary">•</span>
+                    <span>{parseInline(line.trim().slice(2))}</span>
+                </div>
+            );
+            return;
+        }
+
+        // Blockquote
+        if (line.startsWith('> ')) {
+            elements.push(
+                <div key={idx} className="border-l-4 border-yellow-500 bg-yellow-900/10 p-4 my-4 text-gray-300 italic rounded-r border-y border-r border-yellow-900/20">
+                    {parseInline(line.slice(2))}
+                </div>
+            );
+            return;
+        }
+
+        // Paragraph (skip empty lines if purely visual spacer)
+        if (line.trim()) {
+            elements.push(<p key={idx} className="mb-4 leading-relaxed text-gray-300">{parseInline(line)}</p>);
+        } else {
+             elements.push(<div key={idx} className="h-2"></div>);
+        }
+    });
+
+    return elements;
+  };
+  // ------------------------------------------------
+
   const renderContent = () => {
      switch(currentStep.type) {
          case 'theory':
-            return (
-                <div className="prose prose-invert max-w-none text-gray-300 animate-fade-in">
-                   {currentStep.content.split('\n').map((line, i) => {
-                       if (line.trim().startsWith('#')) return <h3 key={i} className="text-xl font-bold text-white mt-4 mb-2 flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary"/> {line.replace(/#/g, '')}</h3>
-                       if (line.trim().startsWith('>')) return <div key={i} className="border-l-4 border-yellow-500 bg-yellow-900/10 p-4 my-4 text-gray-200 italic">{line.replace(/>/g, '')}</div>
-                       return <p key={i} className="mb-2 leading-relaxed">{line}</p>
-                   })}
-                </div>
-            );
          case 'conclusion':
             return (
-                <div className="prose prose-invert max-w-none text-gray-300 animate-fade-in">
-                   {currentStep.content.split('\n').map((line, i) => {
-                       if (line.trim().startsWith('#')) return <h3 key={i} className="text-xl font-bold text-white mt-4 mb-2 flex items-center gap-2"><Lightbulb className="w-5 h-5 text-accent"/> {line.replace(/#/g, '')}</h3>
-                       return <p key={i} className="mb-2 leading-relaxed">{line}</p>
-                   })}
+                <div className="animate-fade-in">
+                   {renderMarkdown(currentStep.content)}
                 </div>
             );
          case 'experiment':
             return (
                 <div className="flex flex-col h-full animate-fade-in">
-                    <div className="mb-4 text-gray-300 space-y-2">
-                       {currentStep.content.split('\n').map((line, i) => {
-                           if (line.trim().startsWith('*')) return <li key={i} className="ml-4 list-disc text-gray-400">{line.replace(/\*/g, '')}</li>
-                           if (line.trim().startsWith('>')) return <div key={i} className="text-sm text-accent mt-2 p-2 bg-accent/10 border border-accent/20 rounded">{line.replace(/>/g, '')}</div>
-                           return <p key={i} className="mb-1">{line}</p>
-                       })}
+                    <div className="mb-4 text-gray-300">
+                        {renderMarkdown(currentStep.content)}
                     </div>
                     <div className="flex-1 border border-gray-700 rounded-xl overflow-hidden min-h-[400px] shadow-2xl relative">
-                        {/* Force level based on content for lazy propagation demo */}
-                        <Visualizer level={'basic'} topic={topic} theme={theme} />
+                        <Visualizer 
+                            level={level} 
+                            topic={topic} 
+                            theme={theme} 
+                            externalData={currentStep.experimentConfig?.initialData} 
+                        />
                     </div>
                 </div>
             );
@@ -164,7 +279,9 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
              
              return (
                  <div className="flex flex-col h-full animate-fade-in gap-6">
-                     <p className="text-gray-300 shrink-0">{currentStep.content}</p>
+                     <div className="text-gray-300 shrink-0">
+                        {renderMarkdown(currentStep.content)}
+                     </div>
                      
                      {/* Code Display Area */}
                      <div className="flex-1 bg-[#1e1e1e] p-6 rounded-xl border border-gray-700 font-mono text-sm overflow-auto shadow-inner whitespace-pre-wrap leading-relaxed">
@@ -174,9 +291,10 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
                                  const id = parseInt(match[1]);
                                  const blank = problem.blanks.find(b => b.id === id)!;
                                  const userAnswer = codeAnswers[id];
-                                 const isCorrect = userAnswer && blank.options.find(o => o.value === userAnswer)?.isCorrect;
                                  
                                  if (userAnswer) {
+                                     // Check if this specific option is correct
+                                     const isCorrect = blank.options.find(o => o.value === userAnswer)?.isCorrect;
                                      return (
                                          <span key={i} className={`font-bold border-b-2 mx-1 px-1 rounded transition-colors ${isCorrect ? 'text-green-400 border-green-500 bg-green-900/20' : 'text-red-400 border-red-500 bg-red-900/20'}`}>
                                              {userAnswer}
@@ -194,7 +312,7 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
                          })}
                      </div>
 
-                     {/* Questions Area - Static Layout */}
+                     {/* Questions Area */}
                      <div className="bg-dark-lighter p-4 rounded-xl border border-gray-700 space-y-6 shrink-0">
                          <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                              <Terminal className="w-4 h-4" /> 填空挑战 (Fill in the Blanks)
@@ -248,13 +366,8 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
          case 'full_code':
              return (
                  <div className="flex flex-col h-full animate-fade-in">
-                     <div className="prose prose-invert max-w-none text-gray-300 mb-6">
-                         {currentStep.content.split('\n').map((line, i) => {
-                             if (line.trim().startsWith('#')) return <h3 key={i} className="text-xl font-bold text-white mt-4 mb-2 flex items-center gap-2"><Terminal className="w-5 h-5 text-primary"/> {line.replace(/#/g, '')}</h3>
-                             if (line.trim().startsWith('**Input**')) return <div key={i} className="font-mono text-sm text-blue-300 mt-2 pl-4 border-l-2 border-blue-500 bg-blue-900/10 p-1">{line.replace(/\*\*/g, '')}</div>
-                             if (line.trim().startsWith('**Output**')) return <div key={i} className="font-mono text-sm text-green-300 mb-2 pl-4 border-l-2 border-green-500 bg-green-900/10 p-1">{line.replace(/\*\*/g, '')}</div>
-                             return <p key={i} className="mb-1 leading-relaxed">{line}</p>
-                         })}
+                     <div className="mb-6 text-gray-300">
+                         {renderMarkdown(currentStep.content)}
                      </div>
                      <div className="flex-1 bg-[#1e1e1e] rounded-xl border border-gray-700 overflow-hidden flex flex-col shadow-lg">
                          <div className="bg-[#2d2d2d] px-4 py-2 flex justify-between items-center border-b border-black/20">

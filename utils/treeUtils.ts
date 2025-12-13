@@ -1,3 +1,4 @@
+
 import { TreeNode, LogStep } from '../types';
 
 // Constants for layout
@@ -6,7 +7,7 @@ const CANVAS_HEIGHT = 400;
 const START_Y = 50;
 const LEVEL_HEIGHT = 80;
 
-type AggregationMode = 'SUM' | 'MAX';
+type AggregationMode = 'SUM' | 'MAX' | 'MIN';
 
 export const generateTreeLayout = (arr: number[], mode: AggregationMode = 'SUM'): TreeNode[] => {
   const nodes: TreeNode[] = [];
@@ -40,14 +41,74 @@ export const generateTreeLayout = (arr: number[], mode: AggregationMode = 'SUM')
     
     if (mode === 'SUM') {
       node.value = leftVal + rightVal;
-    } else {
+    } else if (mode === 'MAX') {
       node.value = Math.max(leftVal, rightVal);
+    } else {
+      node.value = Math.min(leftVal, rightVal);
     }
     return node.value as number;
   };
 
   build(1, 0, n - 1, 0, CANVAS_WIDTH / 2, CANVAS_WIDTH);
   return nodes.sort((a, b) => a.id - b.id);
+};
+
+export const simulateBuild = (
+  arr: number[],
+  mode: AggregationMode = 'SUM'
+): { steps: LogStep[], nodes: TreeNode[] } => {
+  const steps: LogStep[] = [];
+  // 1. Generate the FULL tree topology with calculated values first
+  const fullTree = generateTreeLayout(arr, mode);
+  
+  // 2. Create the "Initial" tree state where all values are '?' (or initial)
+  // We clone the topology but reset values
+  const initialNodes: TreeNode[] = fullTree.map(n => ({
+      ...n,
+      value: '?', // Display placeholder initially
+      lazy: 0
+  }));
+
+  const buildRecursive = (nodeId: number, l: number, r: number) => {
+      // Find the "Final" node to get the correct value to set later
+      const targetNode = fullTree.find(n => n.id === nodeId);
+      if (!targetNode) return;
+
+      steps.push({
+          nodeId,
+          message: `递归访问区间 [${l}, ${r}]`,
+          highlight: 'visiting'
+      });
+
+      if (l === r) {
+          steps.push({
+              nodeId,
+              message: `到达叶子节点 [${l}, ${l}]，赋值 ${targetNode.value}`,
+              highlight: 'found',
+              treeUpdates: [{ id: nodeId, value: targetNode.value }] // Reveal value
+          });
+          return;
+      }
+
+      const mid = Math.floor((l + r) / 2);
+      
+      // Left
+      buildRecursive(nodeId * 2, l, mid);
+      
+      // Right
+      buildRecursive(nodeId * 2 + 1, mid + 1, r);
+      
+      // Push Up
+      steps.push({
+          nodeId,
+          message: `回溯 Push Up: 更新 [${l}, ${r}] = ${mode}(Left, Right) = ${targetNode.value}`,
+          highlight: 'updating',
+          treeUpdates: [{ id: nodeId, value: targetNode.value }] // Reveal value
+      });
+  };
+
+  buildRecursive(1, 0, arr.length - 1);
+  return { steps, nodes: initialNodes };
 };
 
 // Helper: Apply lazy to children (Simulation only, simplified for visualizer)
@@ -101,7 +162,11 @@ export const simulateQuery = (
   
   const query = (nodeId: number, l: number, r: number, ql: number, qr: number): number => {
     const node = nodes.find(n => n.id === nodeId);
-    if (!node) return mode === 'SUM' ? 0 : -Infinity;
+    
+    // Check mode for default return value
+    const identityVal = mode === 'SUM' ? 0 : (mode === 'MAX' ? -Infinity : 2147483647);
+    
+    if (!node) return identityVal;
 
     steps.push({
       nodeId,
@@ -109,7 +174,14 @@ export const simulateQuery = (
       highlight: 'visiting'
     });
 
-    if (l > qr || r < ql) return mode === 'SUM' ? 0 : -Infinity;
+    if (l > qr || r < ql) {
+        steps.push({
+            nodeId,
+            message: `区间 [${l}, ${r}] 与查询无交集，返回 ${mode === 'MIN' ? 'INF' : '0'}`,
+            highlight: 'normal' // grey out or simple visit
+        });
+        return identityVal;
+    }
 
     if (l >= ql && r <= qr) {
       steps.push({
@@ -117,7 +189,8 @@ export const simulateQuery = (
         message: `完全包含，返回 ${node.value}`,
         highlight: 'found'
       });
-      return node.value as number;
+      // Safety check for value type
+      return (typeof node.value === 'number') ? node.value : identityVal;
     }
 
     if (useLazy && node.lazy !== 0) {
@@ -141,8 +214,8 @@ export const simulateQuery = (
     const rightRes = query(nodeId * 2 + 1, mid + 1, r, ql, qr);
     
     if (mode === 'SUM') return leftRes + rightRes;
-    // Handle -Infinity for cleaner display logic if needed, but Math.max works
-    return Math.max(leftRes, rightRes);
+    if (mode === 'MAX') return Math.max(leftRes, rightRes);
+    return Math.min(leftRes, rightRes);
   };
 
   const root = nodes.find(n => n.id === 1);
@@ -187,8 +260,10 @@ export const simulatePointUpdate = (
 
       if (mode === 'SUM') {
         nextNodes[nodeIndex].value = leftVal + rightVal;
-      } else {
+      } else if (mode === 'MAX') {
         nextNodes[nodeIndex].value = Math.max(leftVal, rightVal);
+      } else {
+        nextNodes[nodeIndex].value = Math.min(leftVal, rightVal);
       }
       
       steps.push({

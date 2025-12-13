@@ -1,13 +1,22 @@
 
 export type CourseLevel = 'basic' | 'advanced' | 'expert';
 
-export type Category = 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module' | 'recursion_module';
+export type Category = 
+  | 'seg_module' | 'trie_module' | 'hash_module' | 'uf_module' // New Top Level Modules
+  | 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module' | 'recursion_module';
 
 export type Theme = 'slate' | 'light' | 'black' | 'navy';
 
 export type Topic = 
-  // Data Structure
+  // Data Structure Specific Applications (New)
+  | 'seg_basic' | 'seg_lazy' | 'seg_rmq' | 'seg_min'
+  | 'trie_basic' | 'trie_count' | 'trie_xor'
+  | 'hash_basic' | 'hash_collision' | 'hash_rolling'
+  | 'uf_basic' | 'uf_path' | 'uf_enemy'
+  
+  // Legacy Data Structure (kept for type safety in props, though mapped internally)
   | 'segment_tree' | 'trie' | 'hash' | 'union_find' | 'balanced_tree'
+  
   // String
   | 'ac_automaton' | 'kmp' | 'manacher'
   // Graph
@@ -20,7 +29,7 @@ export type Topic =
   | 'bfs_basic' | 'bfs_shortest' | 'bfs_state' | 'bfs_flood' | 'bfs_topo' | 'bfs_bipartite' | 'bfs_multi'
   // DFS Module
   | 'dfs_basic' | 'dfs_connect' | 'dfs_perm' | 'dfs_maze' | 'dfs_nqueens' | 'dfs_bag' | 'dfs_graph_algo' | 'dfs_pruning'
-  // Recursion Module (UPDATED)
+  // Recursion Module
   | 'recursion_fib' | 'recursion_hanoi' | 'recursion_fractal' | 'recursion_perm' | 'recursion_subset'
   | 'recursion_gcd' | 'recursion_reverse_list' | 'recursion_factorial' | 'recursion_string_rev';
 
@@ -99,6 +108,9 @@ export interface LogStep {
   listState?: { nodes: number[], currentIndex: number, output: number[] }; // Nodes are values
   factState?: { n: number, equation: string };
   stringState?: { chars: string[], left: number, right: number, swapped: boolean };
+
+  // Update specific tree node values during animation
+  treeUpdates?: { id: number, value: number | string }[];
 }
 
 export interface QuizQuestion {

@@ -1,54 +1,119 @@
 
 import React, { useState } from 'react';
 import { BookOpen, Lightbulb, AlertTriangle, FileCode, Copy, Check } from 'lucide-react';
+import { Topic } from '../types';
 
-const ProblemPractice: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'problem' | 'solution'>('problem');
-  const [copied, setCopied] = useState(false);
-
-  const solutionCode = `#include <iostream>
-using namespace std;
-
-// 必须使用 long long，因为题目中说和不超过 2*10^18
-// int (通常 2*10^9) 会溢出
-typedef long long ll;
-
-const int MAXN = 100005;
-ll arr[MAXN];
-ll tree[MAXN * 4]; // 线段树数组开 4 倍
-ll lazy[MAXN * 4]; // 懒标记数组
-int n, m;
-
-// 向上更新 (Push Up)
-void push_up(int node) {
-    tree[node] = tree[node * 2] + tree[node * 2 + 1];
+interface Props {
+    topic?: Topic;
 }
 
-// 向下传递懒标记 (Push Down)
-// 这是区间修改的核心：只有当需要访问子节点时，才把任务下发
+const P3372_DATA = {
+    id: "P3372",
+    title: "【模板】线段树 1",
+    desc: `如题，已知一个数列 \`{a_i}\`，你需要进行下面两种操作：
+1. 将某区间 \`[x, y]\` 每一个数加上 \`k\`。
+2. 求出某区间 \`[x, y]\` 每一个数的和。`,
+    inputDesc: `第一行包含两个整数 n, m，分别表示该数列数字的个数和操作的总个数。
+第二行包含 n 个用空格分隔的整数 a_i。
+接下来 m 行每行包含 3 或 4 个整数，表示一个操作：
+- 1 x y k：区间加
+- 2 x y：区间求和`,
+    outputDesc: `输出包含若干行整数，即为所有操作 2 的结果。`,
+    sampleInput: `5 5
+1 5 4 2 3
+2 2 4
+1 2 3 2
+2 3 4
+1 1 5 1
+2 1 4`,
+    sampleOutput: `11
+8
+20`,
+    hint: `n <= 10^5, m <= 10^5. 注意使用 long long。`,
+    solutionDesc: `线段树区间修改模板题。
+核心在于 **Lazy Tag**。当修改区间时，如果当前节点区间完全包含在修改范围内，直接修改该节点值并打标记返回。只有在查询或修改涉及到子区间时，才将标记下放 (Push Down)。`,
+    code: `#include <iostream>
+using namespace std;
+typedef long long ll;
+const int MAXN = 100005;
+ll arr[MAXN], tree[MAXN * 4], lazy[MAXN * 4];
+int n, m;
+
 void push_down(int node, int start, int end) {
-    // 如果当前节点没有标记，直接返回
     if (lazy[node] == 0) return;
-
     int mid = (start + end) / 2;
-    int left = node * 2;
-    int right = node * 2 + 1;
-
-    // 1. 更新左子节点
-    // 左子节点的值 += 标记值 * 左区间长度
-    tree[left] += lazy[node] * (mid - start + 1);
-    // 标记累加（注意是 +=）
-    lazy[left] += lazy[node];
-
-    // 2. 更新右子节点
-    tree[right] += lazy[node] * (end - mid);
-    lazy[right] += lazy[node];
-
-    // 3. 清除当前节点的标记
+    tree[node*2] += lazy[node] * (mid - start + 1);
+    lazy[node*2] += lazy[node];
+    tree[node*2+1] += lazy[node] * (end - mid);
+    lazy[node*2+1] += lazy[node];
     lazy[node] = 0;
 }
 
-// 建树
+void update(int node, int start, int end, int L, int R, ll k) {
+    if (L <= start && end <= R) {
+        tree[node] += k * (end - start + 1);
+        lazy[node] += k;
+        return;
+    }
+    push_down(node, start, end);
+    int mid = (start + end) / 2;
+    if (L <= mid) update(node*2, start, mid, L, R, k);
+    if (R > mid) update(node*2+1, mid+1, end, L, R, k);
+    tree[node] = tree[node*2] + tree[node*2+1];
+}
+
+ll query(int node, int start, int end, int L, int R) {
+    if (L <= start && end <= R) return tree[node];
+    push_down(node, start, end);
+    int mid = (start + end) / 2;
+    ll sum = 0;
+    if (L <= mid) sum += query(node*2, start, mid, L, R);
+    if (R > mid) sum += query(node*2+1, mid+1, end, L, R);
+    return sum;
+}
+
+int main() {
+    ios::sync_with_stdio(0); cin.tie(0);
+    cin >> n >> m;
+    for(int i=1; i<=n; i++) { cin >> arr[i]; update(1, 1, n, i, i, arr[i]); } 
+    // Build 也可以用专门的 build 函数，这里复用 update 简化
+    for(int i=0; i<m; i++) {
+        int op, x, y; cin >> op >> x >> y;
+        if(op == 1) { ll k; cin >> k; update(1, 1, n, x, y, k); }
+        else cout << query(1, 1, n, x, y) << "\\n";
+    }
+    return 0;
+}`
+};
+
+const P1816_DATA = {
+    id: "P1816",
+    title: "忠诚",
+    desc: `老管家为财主工作了整整 10 年。财主把每次的账目按 1, 2, 3... 编号，然后不定时地问管家：在 a 到 b 号账中最少的一笔是多少？
+为了让管家没时间作假，他总是一次问多个问题。`,
+    inputDesc: `第一行输入两个数 m, n，表示有 m 笔账和 n 个问题。
+第二行输入 m 个数，分别表示账目的钱数。
+接下来 n 行分别输入 n 个问题，每行 2 个数字，分别表示开始的账目编号 a 和结束的账目编号 b。`,
+    outputDesc: `第一行输出每个问题的答案，每个答案中间以一个空格分隔。`,
+    sampleInput: `10 3
+1 2 3 4 5 6 7 8 9 10
+2 7
+3 9
+1 10`,
+    sampleOutput: `2 3 1`,
+    hint: `1 <= m, n <= 10^5. 本题只需要建树和查询，无需修改。`,
+    solutionDesc: `经典的区间最小值查询 (RMQ) 问题。
+我们可以建立一棵维护 **最小值** 的线段树。
+- **Push Up**: 父节点的值 = min(左子节点值, 右子节点值)。
+- **Query**: 如果查询区间覆盖当前节点，直接返回 \`tree[node]\`；否则递归查询左右子树，取较小值。`,
+    code: `#include <iostream>
+#include <algorithm>
+using namespace std;
+const int MAXN = 100005;
+const int INF = 2147483647;
+int arr[MAXN], tree[MAXN * 4];
+int m, n;
+
 void build(int node, int start, int end) {
     if (start == end) {
         tree[node] = arr[start];
@@ -57,81 +122,130 @@ void build(int node, int start, int end) {
     int mid = (start + end) / 2;
     build(node * 2, start, mid);
     build(node * 2 + 1, mid + 1, end);
-    push_up(node);
+    // Push Up: 取最小值
+    tree[node] = min(tree[node * 2], tree[node * 2 + 1]);
 }
 
-// 区间修改：[L, R] 加上 k
-void update(int node, int start, int end, int L, int R, ll k) {
-    // 1. 如果当前区间完全在查询范围内
-    if (L <= start && end <= R) {
-        // 直接更新当前节点的值
-        tree[node] += k * (end - start + 1);
-        // 打上懒标记
-        lazy[node] += k;
-        return;
-    }
-
-    // 2. 如果不完全包含，先下放标记，再处理子节点
-    push_down(node, start, end);
-
-    int mid = (start + end) / 2;
-    if (L <= mid) update(node * 2, start, mid, L, R, k);
-    if (R > mid) update(node * 2 + 1, mid + 1, end, L, R, k);
-
-    // 3. 子节点更新完后，更新当前节点
-    push_up(node);
-}
-
-// 区间查询：求 [L, R] 的和
-ll query(int node, int start, int end, int L, int R) {
+int query(int node, int start, int end, int L, int R) {
     if (L <= start && end <= R) {
         return tree[node];
     }
-
-    // 查询前也必须下放标记，否则子节点的数据可能是旧的
-    push_down(node, start, end);
-
     int mid = (start + end) / 2;
-    ll sum = 0;
-    if (L <= mid) sum += query(node * 2, start, mid, L, R);
-    if (R > mid) sum += query(node * 2 + 1, mid + 1, end, L, R);
-    
-    return sum;
+    int res = INF;
+    if (L <= mid) res = min(res, query(node * 2, start, mid, L, R));
+    if (R > mid) res = min(res, query(node * 2 + 1, mid + 1, end, L, R));
+    return res;
 }
 
 int main() {
-    // 加速输入输出，防止超时
-    ios::sync_with_stdio(0); 
-    cin.tie(0);
-
-    cin >> n >> m;
-    for(int i = 1; i <= n; i++) {
-        cin >> arr[i];
-    }
-
-    build(1, 1, n);
-
-    for(int i = 0; i < m; i++) {
-        int op;
-        cin >> op;
-        if (op == 1) {
-            int x, y;
-            ll k;
-            cin >> x >> y >> k;
-            update(1, 1, n, x, y, k);
-        } else {
-            int x, y;
-            cin >> x >> y;
-            cout << query(1, 1, n, x, y) << "\\n";
-        }
+    ios::sync_with_stdio(0); cin.tie(0);
+    cin >> m >> n;
+    for(int i = 1; i <= m; i++) cin >> arr[i];
+    
+    build(1, 1, m);
+    
+    for(int i = 0; i < n; i++) {
+        int l, r;
+        cin >> l >> r;
+        cout << query(1, 1, m, l, r) << " ";
     }
     return 0;
-}`;
+}`
+};
+
+const ProblemPractice: React.FC<Props> = ({ topic }) => {
+  const [activeTab, setActiveTab] = useState<'problem' | 'solution'>('problem');
+  const [copied, setCopied] = useState(false);
+
+  // Decide which problem to show based on topic
+  const data = topic === 'seg_min' ? P1816_DATA : P3372_DATA;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(solutionCode);
+    navigator.clipboard.writeText(data.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // --- MARKDOWN RENDERER ---
+  const parseInline = (text: string) => {
+    // Split by **bold** or `code`
+    const parts = text.split(/(\*\*.*?\*\*|`[^`]+`)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={i} className="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono text-sm mx-1">{part.slice(1, -1)}</code>;
+        }
+        return part;
+    });
+  };
+
+  const renderMarkdown = (content: string) => {
+    const lines = content.split('\n');
+    const elements: React.ReactNode[] = [];
+    let inCodeBlock = false;
+    let codeLines: string[] = [];
+
+    lines.forEach((line, idx) => {
+        // Code Block Handling
+        if (line.trim().startsWith('```')) {
+            if (inCodeBlock) {
+                elements.push(
+                    <div key={`code-${idx}`} className="relative group my-4">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg blur opacity-50"></div>
+                        <pre className="relative bg-[#1e1e1e] p-4 rounded-lg overflow-x-auto border border-gray-700 text-sm font-mono leading-relaxed">
+                            <code className="text-gray-300">{codeLines.join('\n')}</code>
+                        </pre>
+                    </div>
+                );
+                codeLines = [];
+                inCodeBlock = false;
+            } else {
+                inCodeBlock = true;
+            }
+            return;
+        }
+        if (inCodeBlock) {
+            codeLines.push(line);
+            return;
+        }
+
+        // Headers
+        if (line.startsWith('### ')) {
+            elements.push(
+                <h3 key={idx} className="text-lg font-bold text-primary mt-4 mb-2 flex items-center gap-2">
+                    <div className="w-1.5 h-6 bg-primary rounded-full"></div>
+                    {parseInline(line.slice(4))}
+                </h3>
+            );
+            return;
+        }
+        if (line.startsWith('## ')) {
+             elements.push(<h2 key={idx} className="text-xl font-bold text-white mt-5 mb-3">{parseInline(line.slice(3))}</h2>);
+             return;
+        }
+
+        // List
+        if (line.trim().startsWith('- ')) {
+            elements.push(
+                <div key={idx} className="flex gap-2 mb-1 ml-4 text-gray-300">
+                    <span className="text-primary">•</span>
+                    <span>{parseInline(line.trim().slice(2))}</span>
+                </div>
+            );
+            return;
+        }
+
+        // Paragraph (skip empty lines if purely visual spacer)
+        if (line.trim()) {
+            elements.push(<p key={idx} className="mb-2 leading-relaxed text-gray-300">{parseInline(line)}</p>);
+        } else {
+             elements.push(<div key={idx} className="h-2"></div>);
+        }
+    });
+
+    return elements;
   };
 
   return (
@@ -161,8 +275,8 @@ int main() {
           {activeTab === 'problem' && (
             <div className="flex-1 overflow-auto p-8 lg:px-12 text-gray-300 leading-7">
                 <div className="flex items-center gap-3 mb-8 border-b border-gray-700 pb-6">
-                  <div className="bg-primary/20 px-3 py-1 rounded text-primary font-mono font-bold text-lg">P3372</div>
-                  <h1 className="text-3xl font-bold text-white">【模板】线段树 1</h1>
+                  <div className="bg-primary/20 px-3 py-1 rounded text-primary font-mono font-bold text-lg">{data.id}</div>
+                  <h1 className="text-3xl font-bold text-white">{data.title}</h1>
                 </div>
                 
                 <div className="space-y-8">
@@ -171,33 +285,23 @@ int main() {
                     <h2 className="text-xl font-bold text-white mb-4 border-l-4 border-primary pl-4 flex items-center">
                       题目描述
                     </h2>
-                    <div className="prose prose-invert max-w-none">
-                      <p className="mb-4">如题，已知一个数列 <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-primary text-sm">{"{a_i}"}</code>，你需要进行下面两种操作：</p>
-                      <ol className="list-decimal pl-6 space-y-2 bg-black/20 p-4 rounded-lg border border-gray-800">
-                        <li>将某区间 <span className="font-mono text-yellow-500">[x, y]</span> 每一个数加上 <span className="font-mono text-yellow-500">k</span>。</li>
-                        <li>求出某区间 <span className="font-mono text-yellow-500">[x, y]</span> 每一个数的和。</li>
-                      </ol>
+                    <div className="prose prose-invert max-w-none whitespace-pre-wrap">
+                      {data.desc}
                     </div>
                   </section>
 
                   {/* Input Format */}
                   <section>
                     <h2 className="text-xl font-bold text-white mb-4 border-l-4 border-primary pl-4">输入格式</h2>
-                    <div className="text-gray-300 space-y-2">
-                      <p>第一行包含两个整数 <span className="font-mono text-gray-400">n, m</span>，分别表示该数列数字的个数和操作的总个数。</p>
-                      <p>第二行包含 <span className="font-mono text-gray-400">n</span> 个用空格分隔的整数 <span className="font-mono text-gray-400">a_i</span>，其中第 <span className="font-mono text-gray-400">i</span> 个数字表示数列第 <span className="font-mono text-gray-400">i</span> 项的初始值。</p>
-                      <p>接下来 <span className="font-mono text-gray-400">m</span> 行每行包含 3 或 4 个整数，表示一个操作，具体如下：</p>
-                      <ul className="list-disc pl-6 mt-2 space-y-2 font-mono text-sm bg-black/40 p-4 rounded border border-gray-700">
-                        <li><span className="text-accent font-bold">1 x y k</span> ：将区间 [x, y] 内每个数加上 k。</li>
-                        <li><span className="text-accent font-bold">2 x y</span> ：输出区间 [x, y] 内每个数的和。</li>
-                      </ul>
+                    <div className="text-gray-300 whitespace-pre-wrap">
+                      {data.inputDesc}
                     </div>
                   </section>
 
                   {/* Output Format */}
                   <section>
                     <h2 className="text-xl font-bold text-white mb-4 border-l-4 border-primary pl-4">输出格式</h2>
-                    <p>输出包含若干行整数，即为所有操作 2 的结果。</p>
+                    <p>{data.outputDesc}</p>
                   </section>
                   
                   {/* Examples */}
@@ -207,21 +311,13 @@ int main() {
                       <div className="bg-black/40 rounded-lg overflow-hidden border border-gray-700">
                          <div className="bg-gray-800/50 px-4 py-2 text-xs text-gray-400 border-b border-gray-700 font-mono">输入 #1</div>
                          <pre className="p-4 font-mono text-sm text-gray-300 overflow-x-auto">
-{`5 5
-1 5 4 2 3
-2 2 4
-1 2 3 2
-2 3 4
-1 1 5 1
-2 1 4`}
+{data.sampleInput}
                          </pre>
                       </div>
                        <div className="bg-black/40 rounded-lg overflow-hidden border border-gray-700">
                          <div className="bg-gray-800/50 px-4 py-2 text-xs text-gray-400 border-b border-gray-700 font-mono">输出 #1</div>
                          <pre className="p-4 font-mono text-sm text-gray-300 overflow-x-auto">
-{`11
-8
-20`}
+{data.sampleOutput}
                          </pre>
                       </div>
                     </div>
@@ -232,10 +328,7 @@ int main() {
                     <h2 className="text-xl font-bold text-white mb-4 border-l-4 border-primary pl-4">说明/提示</h2>
                     <div className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-5">
                       <ul className="list-disc pl-5 space-y-2 text-sm text-gray-300">
-                        <li>对于 30% 的数据：<span className="font-mono">n ≤ 10, m ≤ 10</span>。</li>
-                        <li>对于 70% 的数据：<span className="font-mono">n ≤ 10^3, m ≤ 10^4</span>。</li>
-                        <li>对于 100% 的数据：<span className="font-mono">1 ≤ n, m ≤ 10^5</span>。</li>
-                        <li className="text-yellow-400 font-bold">重要：a_i, k 为正数，且任意时刻数列的和不超过 2 × 10^18。</li>
+                        <li>{data.hint}</li>
                       </ul>
                     </div>
                   </section>
@@ -252,49 +345,10 @@ int main() {
                   <section className="space-y-4">
                      <h2 className="text-2xl font-bold text-accent flex items-center gap-2">
                        <Lightbulb className="w-6 h-6" />
-                       解题思路：懒惰标记 (Lazy Tag)
+                       解题思路
                      </h2>
-                     <div className="text-gray-300 leading-relaxed space-y-4">
-                        <p>
-                          这道题是线段树<strong>区间修改</strong>最经典的模板题。
-                          如果使用朴素的 O(N) 循环来一个个加，总复杂度会达到 O(NM)，在 N, M = 10^5 时会超时（需要约 100亿次运算）。
-                        </p>
-                        <p>
-                          线段树通过<strong>懒惰标记</strong>将区间修改的复杂度降为 <strong>O(log N)</strong>。
-                          核心思想是：<span className="text-white font-bold bg-white/10 px-1 rounded">“不到万不得已，不干活”</span>。
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                           <div className="bg-dark p-4 rounded-lg border border-gray-700">
-                              <h4 className="text-primary font-bold mb-2">Update 时</h4>
-                              <p className="text-sm text-gray-400">如果当前节点区间完全在修改范围内，直接修改该节点的值（Sum + len * k），打上 Tag，然后直接返回，不再递归。</p>
-                           </div>
-                           <div className="bg-dark p-4 rounded-lg border border-gray-700">
-                              <h4 className="text-purple-400 font-bold mb-2">Push Down</h4>
-                              <p className="text-sm text-gray-400">只有当以后需要访问该节点的子节点时（查询或更细粒度的修改），才把 Tag 下发给两个子节点。</p>
-                           </div>
-                        </div>
-                     </div>
-                  </section>
-
-                  {/* Pitfalls */}
-                  <section className="space-y-4">
-                     <h2 className="text-2xl font-bold text-red-400 flex items-center gap-2">
-                       <AlertTriangle className="w-6 h-6" />
-                       避坑指南 (注意事项)
-                     </h2>
-                     <div className="bg-red-900/10 border border-red-900/30 rounded-xl p-6 space-y-3">
-                        <div className="flex gap-3">
-                           <span className="bg-red-500/20 text-red-400 font-mono text-xs px-2 py-1 rounded h-fit shrink-0">INT OVERFLOW</span>
-                           <p className="text-sm text-gray-300">题目提示数据和可达 <span className="font-mono">2*10^18</span>。<code>int</code> 最大只有约 <span className="font-mono">2*10^9</span>，必爆！<strong className="text-white">必须全程使用 long long</strong>。</p>
-                        </div>
-                        <div className="flex gap-3">
-                           <span className="bg-red-500/20 text-red-400 font-mono text-xs px-2 py-1 rounded h-fit shrink-0">ARRAY SIZE</span>
-                           <p className="text-sm text-gray-300">线段树数组 <code>tree[]</code> 和 <code>lazy[]</code> 都要开 <strong className="text-white">4 * N</strong> 大小，否则会越界 (Runtime Error)。</p>
-                        </div>
-                        <div className="flex gap-3">
-                           <span className="bg-red-500/20 text-red-400 font-mono text-xs px-2 py-1 rounded h-fit shrink-0">LAZY LOGIC</span>
-                           <p className="text-sm text-gray-300">下放标记时，子节点的值增加量 = <code className="text-yellow-400">lazy * 区间长度</code>，不要忘了乘长度！同时标记是<strong className="text-white">累加 (+=)</strong> 而不是覆盖 (=)。</p>
-                        </div>
+                     <div className="text-gray-300 leading-relaxed">
+                        {renderMarkdown(data.solutionDesc)}
                      </div>
                   </section>
 
@@ -303,7 +357,7 @@ int main() {
                      <div className="flex justify-between items-end">
                         <h2 className="text-2xl font-bold text-green-400 flex items-center gap-2">
                           <FileCode className="w-6 h-6" />
-                          标准代码 (C++ Solution)
+                          参考代码 (C++)
                         </h2>
                         <button 
                           onClick={handleCopy}
@@ -325,7 +379,7 @@ int main() {
                            </div>
                            <pre className="p-6 overflow-x-auto text-sm font-mono leading-relaxed text-gray-300">
                              <code dangerouslySetInnerHTML={{
-                               __html: solutionCode
+                               __html: data.code
                                  .replace(/</g, '&lt;')
                                  .replace(/>/g, '&gt;')
                                  .replace(/\/\/.*/g, '<span class="text-gray-500 italic">$&</span>')

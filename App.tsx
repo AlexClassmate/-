@@ -1,6 +1,7 @@
 
+// ... existing imports ...
 import React, { useState, useEffect } from 'react';
-import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone, Repeat, List, ListTree, RefreshCcw, CaseSensitive, Binary, Calculator } from 'lucide-react';
+import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone, Repeat, List, ListTree, RefreshCcw, CaseSensitive, Binary, Calculator, Key } from 'lucide-react';
 import Visualizer from './components/Visualizer';
 import StorySection from './components/StorySection';
 import QuizSection from './components/QuizSection';
@@ -12,8 +13,49 @@ import { CourseLevel, Topic, Category, Theme } from './types';
 
 type Tab = 'story' | 'visualizer' | 'code' | 'quiz' | 'guided' | 'practice' | 'lecture';
 
-// Navigation Structure
+// ... (Keep existing CATEGORIES constant unchanged) ...
 const CATEGORIES: { id: Category; label: string; icon: any; topics: { id: Topic; label: string }[] }[] = [
+  {
+    id: 'seg_module',
+    label: '线段树 (Segment Tree)',
+    icon: Database,
+    topics: [
+      { id: 'seg_basic', label: '应用一：区间求和 (基础)' },
+      { id: 'seg_lazy', label: '应用二：懒惰标记 (进阶)' },
+      { id: 'seg_rmq', label: '应用三：区间最值 RMQ (高阶)' },
+      { id: 'seg_min', label: '应用四：区间最小值 (P1816)' }
+    ]
+  },
+  {
+    id: 'trie_module',
+    label: '字典树 (Trie)',
+    icon: Search,
+    topics: [
+      { id: 'trie_basic', label: '应用一：单词查找 (基础)' },
+      { id: 'trie_count', label: '应用二：前缀统计 (进阶)' },
+      { id: 'trie_xor', label: '应用三：01字典树/最大异或 (高阶)' }
+    ]
+  },
+  {
+    id: 'hash_module',
+    label: '哈希表 (Hash)',
+    icon: Hash,
+    topics: [
+      { id: 'hash_basic', label: '应用一：拉链法 (基础)' },
+      { id: 'hash_collision', label: '应用二：开放寻址法 (进阶)' },
+      { id: 'hash_rolling', label: '应用三：字符串哈希 (高阶)' }
+    ]
+  },
+  {
+    id: 'uf_module',
+    label: '并查集 (Union Find)',
+    icon: Network,
+    topics: [
+      { id: 'uf_basic', label: '应用一：连通性判断 (基础)' },
+      { id: 'uf_path', label: '应用二：路径压缩 (进阶)' },
+      { id: 'uf_enemy', label: '应用三：扩展域/敌人的敌人 (高阶)' }
+    ]
+  },
   {
     id: 'recursion_module',
     label: '递归函数 (Recursion)',
@@ -60,21 +102,9 @@ const CATEGORIES: { id: Category; label: string; icon: any; topics: { id: Topic;
     ]
   },
   {
-    id: 'data_structure',
-    label: '数据结构',
-    icon: Database,
-    topics: [
-      { id: 'segment_tree', label: '线段树' },
-      { id: 'trie', label: '字典树' },
-      { id: 'hash', label: '哈希表' },
-      { id: 'union_find', label: '并查集' },
-      { id: 'balanced_tree', label: '平衡树 (Treap)' }
-    ]
-  },
-  {
     id: 'graph',
-    label: '图论算法',
-    icon: Network,
+    label: '其他图论',
+    icon: GitGraph,
     topics: [
       { id: 'mst', label: '最小生成树' },
       { id: 'shortest_path', label: '最短路' },
@@ -122,10 +152,9 @@ const THEME_OPTIONS: { id: Theme; label: string; color: string }[] = [
 ];
 
 const App: React.FC = () => {
-  const [currentTopic, setCurrentTopic] = useState<Topic>('segment_tree');
-  const [currentLevel, setCurrentLevel] = useState<CourseLevel>('basic');
+  const [currentTopic, setCurrentTopic] = useState<Topic>('seg_basic'); 
   const [activeTab, setActiveTab] = useState<Tab>('story');
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'recursion_module': true, 'dfs_module': false});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'seg_module': true});
   
   // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>('slate');
@@ -140,15 +169,47 @@ const App: React.FC = () => {
     setOpenCategories(prev => ({...prev, [cat]: !prev[cat]}));
   };
 
-  // Determine if the current topic supports specific tabs
+  const mapTopicToContext = (topicId: Topic): { realTopic: Topic, level: CourseLevel } => {
+      // Segment Tree Mapping
+      if (topicId === 'seg_basic') return { realTopic: 'segment_tree', level: 'basic' };
+      if (topicId === 'seg_lazy') return { realTopic: 'segment_tree', level: 'advanced' };
+      if (topicId === 'seg_rmq') return { realTopic: 'segment_tree', level: 'expert' };
+      
+      // Trie Mapping
+      if (topicId === 'trie_basic') return { realTopic: 'trie', level: 'basic' };
+      if (topicId === 'trie_count') return { realTopic: 'trie', level: 'advanced' };
+      if (topicId === 'trie_xor') return { realTopic: 'trie', level: 'expert' };
+
+      // Hash Mapping
+      if (topicId === 'hash_basic') return { realTopic: 'hash', level: 'basic' };
+      if (topicId === 'hash_collision') return { realTopic: 'hash', level: 'advanced' };
+      if (topicId === 'hash_rolling') return { realTopic: 'hash', level: 'expert' };
+
+      // Union Find Mapping
+      if (topicId === 'uf_basic') return { realTopic: 'union_find', level: 'basic' };
+      if (topicId === 'uf_path') return { realTopic: 'union_find', level: 'advanced' };
+      if (topicId === 'uf_enemy') return { realTopic: 'union_find', level: 'expert' };
+
+      return { realTopic: topicId, level: 'basic' };
+  };
+
+  const { realTopic, level } = mapTopicToContext(currentTopic);
+
   const isLectureOnly = (topic: Topic) => {
-    // Legacy topics support full suite. New ones default to Lecture Mode.
-    const legacy = ['segment_tree', 'trie', 'hash', 'union_find'];
-    return !legacy.includes(topic);
+    const legacyBase = ['segment_tree', 'trie', 'hash', 'union_find'];
+    if (topic === 'seg_min') return false; 
+    return !legacyBase.includes(realTopic);
   };
 
   const getAvailableTabs = (topicId: Topic) => {
-    if (isLectureOnly(topicId)) {
+    if (topicId === 'seg_min') {
+         return [
+            { id: 'lecture', label: '讲课模式', icon: School },
+            { id: 'visualizer', label: '算法演示', icon: Activity },
+            { id: 'practice', label: 'P1816 真题', icon: Layers }
+        ];
+    }
+    if (isLectureOnly(realTopic)) {
         return [
             { id: 'lecture', label: '讲课模式', icon: School },
             { id: 'visualizer', label: '算法演示', icon: Activity }
@@ -162,33 +223,39 @@ const App: React.FC = () => {
         { id: 'code', label: '代码模板', icon: Code },
         { id: 'quiz', label: '测验', icon: Trophy },
     ];
-    if (topicId === 'segment_tree') {
+    if (realTopic === 'segment_tree') {
         tabs.push({ id: 'practice', label: 'P3372 真题', icon: Layers });
     }
     return tabs;
   };
 
   const renderContent = () => {
-    // If it's a "Lecture Only" topic (like trees), we restrict tabs but MUST allow 'visualizer' 
-    // to pass through to the switch statement instead of forcing LectureMode.
-    if (isLectureOnly(currentTopic)) {
-        if (activeTab === 'lecture') return <LectureMode topic={currentTopic} theme={currentTheme} />;
-        if (activeTab === 'visualizer') return <Visualizer level={currentLevel} topic={currentTopic} theme={currentTheme} />;
-        // Default fallthrough
-        return <LectureMode topic={currentTopic} theme={currentTheme} />;
+    if (isLectureOnly(realTopic)) {
+        // CHANGED: Pass currentTopic AND level to LectureMode
+        if (activeTab === 'lecture') return <LectureMode topic={currentTopic} level={level} theme={currentTheme} />;
+        if (activeTab === 'visualizer') return <Visualizer level={level} topic={realTopic} theme={currentTheme} />;
+        return <LectureMode topic={currentTopic} level={level} theme={currentTheme} />;
     }
 
     switch (activeTab) {
-      case 'lecture': return <LectureMode topic={currentTopic} theme={currentTheme} />;
-      case 'story': return <StorySection level={currentLevel} topic={currentTopic} />;
-      case 'visualizer': return <Visualizer level={currentLevel} topic={currentTopic} theme={currentTheme} />;
-      case 'guided': return <GuidedCoding level={currentLevel} topic={currentTopic} />;
-      case 'code': return <CodeLab level={currentLevel} topic={currentTopic} />;
-      case 'quiz': return <QuizSection level={currentLevel} />;
-      case 'practice': return <ProblemPractice />;
-      default: return <StorySection level={currentLevel} topic={currentTopic} />;
+      case 'lecture': return <LectureMode topic={currentTopic} level={level} theme={currentTheme} />;
+      case 'story': return <StorySection level={level} topic={realTopic} />;
+      case 'visualizer': return <Visualizer level={level} topic={realTopic} theme={currentTheme} />;
+      case 'guided': return <GuidedCoding level={level} topic={realTopic} />;
+      case 'code': return <CodeLab level={level} topic={realTopic} />;
+      case 'quiz': return <QuizSection level={level} />;
+      case 'practice': return <ProblemPractice topic={currentTopic} />;
+      default: return <StorySection level={level} topic={realTopic} />;
     }
   };
+
+  const getCurrentLabel = () => {
+      for (const cat of CATEGORIES) {
+          const t = cat.topics.find(t => t.id === currentTopic);
+          if (t) return t.label;
+      }
+      return currentTopic;
+  }
 
   return (
     <div className="min-h-screen bg-dark text-gray-100 flex flex-col font-sans overflow-hidden transition-colors duration-300">
@@ -233,7 +300,7 @@ const App: React.FC = () => {
       </nav>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation (Merged) */}
+        {/* Sidebar Navigation */}
         <aside className="w-72 bg-dark-lighter border-r border-gray-800 flex flex-col shrink-0 h-full overflow-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
              {CATEGORIES.map(cat => (
@@ -256,12 +323,13 @@ const App: React.FC = () => {
                                      onClick={() => { 
                                          setCurrentTopic(t.id); 
                                          if(currentTopic !== t.id) {
-                                            // Default action when switching topic
-                                            if(isLectureOnly(t.id)) setActiveTab('lecture');
+                                            const context = mapTopicToContext(t.id);
+                                            if (t.id === 'seg_min') setActiveTab('lecture');
+                                            else if(isLectureOnly(context.realTopic)) setActiveTab('lecture');
                                             else setActiveTab('story');
                                          }
                                      }}
-                                     className={`w-full text-left px-3 py-2 rounded text-sm transition flex justify-between items-center ${currentTopic === t.id ? 'bg-primary/10 text-primary border border-primary/20' : 'text-gray-400 hover:bg-gray-800'}`}
+                                     className={`w-full text-left px-3 py-2 rounded text-xs transition flex justify-between items-center ${currentTopic === t.id ? 'bg-primary/10 text-primary border border-primary/20' : 'text-gray-400 hover:bg-gray-800'}`}
                                    >
                                       {t.label}
                                    </button>
@@ -273,7 +341,7 @@ const App: React.FC = () => {
                                                <button
                                                    key={tab.id}
                                                    onClick={() => setActiveTab(tab.id)}
-                                                   className={`flex items-center gap-2 px-3 py-1.5 text-xs w-full rounded transition-colors ${activeTab === tab.id ? 'text-white bg-gray-700 font-medium' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                                                   className={`flex items-center gap-2 px-3 py-1.5 text-[10px] w-full rounded transition-colors ${activeTab === tab.id ? 'text-white bg-gray-700 font-medium' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
                                                >
                                                    <tab.icon className={`w-3 h-3 ${activeTab === tab.id ? 'text-primary' : ''}`} />
                                                    {tab.label}
@@ -288,34 +356,26 @@ const App: React.FC = () => {
                  </div>
              ))}
           </div>
-
-          {/* Difficulty Selector (Moved to Footer) */}
-          {!isLectureOnly(currentTopic) && (
-            <div className="p-4 border-t border-gray-800 bg-black/10 shrink-0">
-                <div className="text-xs font-bold text-gray-500 mb-2 px-1 uppercase tracking-wider flex items-center gap-2">
-                    <TrendingUp className="w-3 h-3" /> 难度选择 (Difficulty)
-                </div>
-                <div className="grid grid-cols-3 gap-1 bg-gray-900/50 p-1 rounded-lg">
-                    {(['basic', 'advanced', 'expert'] as CourseLevel[]).map(l => (
-                        <button 
-                            key={l} 
-                            onClick={() => setCurrentLevel(l)} 
-                            className={`px-1 py-1.5 rounded text-[10px] capitalize font-medium transition-all text-center ${currentLevel===l ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {l}
-                        </button>
-                    ))}
-                </div>
-            </div>
-          )}
+          
+          {/* Footer Info */}
+          <div className="p-4 border-t border-gray-800 text-[10px] text-gray-500 text-center">
+              v2.5.0 - Interactive Learning
+          </div>
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-dark transition-colors duration-300">
           <header className="h-16 border-b border-gray-800 flex items-center px-8 bg-dark/50 backdrop-blur-md sticky top-0 z-10 shrink-0">
-            <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-               {currentTopic.replace(/_/g, ' ').toUpperCase()}
-            </h2>
+            <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                   {getCurrentLabel()}
+                </h2>
+                {!isLectureOnly(realTopic) && realTopic !== 'seg_min' && (
+                    <span className={`text-xs px-2 py-0.5 rounded ml-1 border ${level === 'basic' ? 'border-green-800 text-green-500 bg-green-900/20' : level === 'advanced' ? 'border-yellow-800 text-yellow-500 bg-yellow-900/20' : 'border-purple-800 text-purple-500 bg-purple-900/20'}`}>
+                        {level === 'basic' ? 'Basic Concepts' : level === 'advanced' ? 'Advanced Techniques' : 'Expert Applications'}
+                    </span>
+                )}
+            </div>
           </header>
           <div className="flex-1 overflow-auto p-6 lg:p-8">
              {renderContent()}
