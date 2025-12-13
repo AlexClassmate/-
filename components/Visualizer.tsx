@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, RotateCcw, Plus, GitBranch, Zap, ArrowDown, MoveHorizontal, Search, RefreshCw, MousePointerClick, Check, Hash, Grid as GridIcon, Layers, Crown, Footprints, Gauge, Repeat, Box, Divide, List, Shuffle, AlignLeft, Calculator, Type, RefreshCcw as RefreshIcon } from 'lucide-react';
@@ -121,6 +122,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   const [nodeColors, setNodeColors] = useState<Record<number, string>>({}); // For Bipartite/Topo
 
   // RECURSION STATE
+  const [hanoiCount, setHanoiCount] = useState(3);
   const [hanoiState, setHanoiState] = useState<number[][]>([[3, 2, 1], [], []]); // 3 pegs
   const [fractalLines, setFractalLines] = useState<{x1:number,y1:number,x2:number,y2:number, depth:number}[]>([]);
   const [permCurrentPath, setPermCurrentPath] = useState<(number|null)[]>(new Array(3).fill(null));
@@ -223,7 +225,15 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
     setGridColorMap({});
     setQueenCells({});
     setQueueState([]); // Reset queue/stack
-    setHanoiState([[3, 2, 1], [], []]);
+    
+    // Reset Hanoi based on current count
+    if (topic === 'recursion_hanoi') {
+        const initialPeg = Array.from({length: hanoiCount}, (_, i) => hanoiCount - i);
+        setHanoiState([initialPeg, [], []]);
+    } else {
+        setHanoiState([[3, 2, 1], [], []]);
+    }
+    
     setFractalLines([]);
     
     // Reset Playback Controls
@@ -426,9 +436,14 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   };
 
   const handleHanoi = async () => {
+      // Ensure state is reset to start position before running animation
+      const initialPeg = Array.from({length: hanoiCount}, (_, i) => hanoiCount - i);
+      setHanoiState([initialPeg, [], []]);
+      // Small delay to allow react to render the reset state
+      await new Promise(r => setTimeout(r, 50));
+
       const steps: LogStep[] = [];
       const stack: string[] = [];
-      // Note: We don't need to manually reset Hanoi state here because handleReset called before this or at mount
       
       const hanoi = (n: number, from: number, to: number, aux: number, fromLabel: string, toLabel: string, auxLabel: string) => {
           const frame = `hanoi(${n}, ${fromLabel}->${toLabel})`;
@@ -472,7 +487,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
           stack.pop();
       };
 
-      hanoi(3, 0, 2, 1, 'A', 'C', 'B');
+      hanoi(hanoiCount, 0, 2, 1, 'A', 'C', 'B');
       await runAnimation(steps);
   };
 
@@ -1308,8 +1323,28 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                   {playbackControls}
                   <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
                       <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Box className="w-3 h-3"/> 汉诺塔演示</div>
+                      
+                      <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xs text-gray-400">层数:</span>
+                          <input 
+                              type="number" 
+                              min="1" 
+                              max="8" 
+                              value={hanoiCount} 
+                              onChange={(e) => {
+                                  const val = Math.max(1, Math.min(8, parseInt(e.target.value) || 3));
+                                  setHanoiCount(val);
+                                  const initialPeg = Array.from({length: val}, (_, i) => val - i);
+                                  setHanoiState([initialPeg, [], []]);
+                                  setLogs([]); // Clear logs on reset
+                              }}
+                              disabled={isAnimating}
+                              className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
+                          />
+                      </div>
+
                       <button onClick={handleHanoi} disabled={isAnimating} className="w-full bg-purple-600 hover:bg-purple-500 text-white p-2 rounded text-xs flex justify-between">
-                             <span>Solve Hanoi(3)</span>
+                             <span>Solve Hanoi({hanoiCount})</span>
                              <Play className="w-3 h-3" />
                       </button>
                   </div>
@@ -1804,8 +1839,8 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                                       exit={{ opacity: 0, scale: 0 }}
                                       className="z-10 h-6 rounded border border-white/20 mb-1"
                                       style={{ 
-                                          width: `${diskSize * 25 + 20}%`,
-                                          backgroundColor: diskSize === 1 ? '#ef4444' : diskSize === 2 ? '#3b82f6' : '#f59e0b'
+                                          width: `${(diskSize / hanoiCount) * 80 + 20}%`, // Dynamic width scaling
+                                          backgroundColor: `hsl(${diskSize * 30}, 70%, 50%)` // Dynamic color
                                       }}
                                    />
                                ))}
