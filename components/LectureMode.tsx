@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Copy, XCircle } from 'lucide-react';
+import { CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Lightbulb, Copy, XCircle } from 'lucide-react';
 import { Topic, LectureStep, Theme } from '../types';
 import { 
     AC_AUTOMATON_LECTURE, KMP_LECTURE, MANACHER_LECTURE, BALANCED_TREE_LECTURE,
