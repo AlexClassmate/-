@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { BookOpen, Users, Package, StickyNote, Zap, TrendingUp, BarChart2, Search, Database, Network, Cpu, Hash, GitMerge } from 'lucide-react';
+import { Users, StickyNote, TrendingUp, BarChart2, Search, Database, Network, Cpu, Hash, GitMerge, Zap } from 'lucide-react';
 import { CourseLevel, Topic } from '../types';
 
 interface Props {
@@ -81,7 +82,7 @@ const StorySection: React.FC<Props> = ({ level, topic }) => {
                 <p className="text-sm">
                    字典树就是把单词拆开，建成一棵树。根节点什么都不存，第一层节点代表单词的第一个字母，第二层代表第二个...
                    <br/>
-                   如果有单词 "cat" 和 "car"，它们会共享前缀 "c" -> "a"，然后在第三层分叉成 't' 和 'r'。省空间又快！
+                   如果有单词 "cat" 和 "car"，它们会共享前缀 "c" -&gt; "a"，然后在第三层分叉成 't' 和 'r'。省空间又快！
                 </p>
               </div>
             </div>
@@ -247,7 +248,7 @@ const StorySection: React.FC<Props> = ({ level, topic }) => {
                <Zap /> 进阶篇：路径压缩 (Path Compression)
             </h2>
             <div className="space-y-4 text-gray-300 leading-relaxed">
-              <p>如果层级太多：A->B->C->D->...->Z，每次 A 找大哥 Z 都要跑断腿。这叫“长链”问题。</p>
+              <p>如果层级太多：A-&gt;B-&gt;C-&gt;D-&gt;...-&gt;Z，每次 A 找大哥 Z 都要跑断腿。这叫“长链”问题。</p>
               <div className="bg-yellow-900/20 border-l-4 border-yellow-500 p-4 my-4">
                 <h4 className="font-bold text-yellow-200 mb-1">越级汇报</h4>
                 <p className="text-sm">
@@ -287,7 +288,11 @@ const StorySection: React.FC<Props> = ({ level, topic }) => {
     }
   }
 
-  return <div>Select a topic</div>;
+  return (
+    <div className="flex items-center justify-center h-full text-gray-500 italic p-8 border border-dashed border-gray-700 rounded-xl">
+        <p>Please select a specific Data Structure topic (Segment Tree, Trie, Hash, Union Find) to view its story.</p>
+    </div>
+  );
 };
 
 export default StorySection;
