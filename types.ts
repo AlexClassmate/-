@@ -1,8 +1,7 @@
 
-
 export type CourseLevel = 'basic' | 'advanced' | 'expert';
 
-export type Category = 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module';
+export type Category = 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module' | 'recursion_module';
 
 export type Theme = 'slate' | 'light' | 'black' | 'navy';
 
@@ -19,8 +18,11 @@ export type Topic =
   | 'sweep_line'
   // BFS Module
   | 'bfs_basic' | 'bfs_shortest' | 'bfs_state' | 'bfs_flood' | 'bfs_topo' | 'bfs_bipartite' | 'bfs_multi'
-  // DFS Module (NEW)
-  | 'dfs_basic' | 'dfs_connect' | 'dfs_perm' | 'dfs_maze' | 'dfs_nqueens' | 'dfs_bag' | 'dfs_graph_algo' | 'dfs_pruning';
+  // DFS Module
+  | 'dfs_basic' | 'dfs_connect' | 'dfs_perm' | 'dfs_maze' | 'dfs_nqueens' | 'dfs_bag' | 'dfs_graph_algo' | 'dfs_pruning'
+  // Recursion Module (UPDATED)
+  | 'recursion_fib' | 'recursion_hanoi' | 'recursion_fractal' | 'recursion_perm' | 'recursion_subset'
+  | 'recursion_gcd' | 'recursion_reverse_list' | 'recursion_factorial' | 'recursion_string_rev';
 
 // Generic tree node (Segment Tree / Trie / UF Tree / AC Automaton / Treap)
 export interface TreeNode {
@@ -83,6 +85,20 @@ export interface LogStep {
   highlight: 'visiting' | 'found' | 'updating' | 'partial' | 'pushdown' | 'normal' | 'fail' | 'match' | 'mismatch' | 'mirror' | 'backtrack'; // Added backtrack
   queue?: (number | string)[]; // Snapshot of the queue state
   stack?: (number | string)[]; // Snapshot of the stack state (for DFS)
+  
+  // Custom payloads for recursion
+  hanoiMove?: { disk: number, from: number, to: number };
+  fractalLine?: { x1: number, y1: number, x2: number, y2: number, depth: number };
+  
+  // Custom payloads for Permutations/Subsets
+  permState?: { currentPath: (number|null)[], used: boolean[] };
+  subsetState?: { index: number, currentPath: number[], status: 'considering' | 'included' | 'excluded' | 'result' };
+  
+  // Custom payloads for new recursion topics
+  gcdState?: { a: number, b: number, formula: string };
+  listState?: { nodes: number[], currentIndex: number, output: number[] }; // Nodes are values
+  factState?: { n: number, equation: string };
+  stringState?: { chars: string[], left: number, right: number, swapped: boolean };
 }
 
 export interface QuizQuestion {
@@ -94,13 +110,14 @@ export interface QuizQuestion {
 }
 
 // Lecture Mode Types
-export type StepType = 'theory' | 'experiment' | 'conclusion' | 'code' | 'quiz';
+export type StepType = 'theory' | 'experiment' | 'conclusion' | 'code' | 'quiz' | 'full_code';
 
 export interface LectureStep {
   id: number;
   type: StepType;
   title: string;
   content: string; // Markdown supported
+  codeSnippet?: string; // For full_code type
   experimentConfig?: {
     initialData?: string[]; // For Treap: "val,pri" strings or just vals
     allowedActions?: string[]; 

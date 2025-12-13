@@ -1,6 +1,56 @@
 
-
 import { TreeNode, LogStep, HashItem, GraphNode, GraphEdge, GridCell } from '../types';
+
+// --- RECURSION UTILS ---
+
+// 1. Fibonacci Call Tree
+export const generateFibCallTree = (n: number): { nodes: GraphNode[], edges: GraphEdge[] } => {
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
+    let nextId = 1;
+
+    // Recursive builder to populate nodes and edges
+    // Returns the ID of the root node of this subtree
+    const build = (val: number, x: number, y: number, width: number): number => {
+        const id = nextId++;
+        nodes.push({ id, x, y, label: `f(${val})` });
+
+        if (val > 1) {
+            // Left child: f(n-1)
+            const leftId = build(val - 1, x - width / 4, y + 60, width / 2);
+            edges.push({ u: id, v: leftId, weight: 0, directed: true });
+
+            // Right child: f(n-2)
+            const rightId = build(val - 2, x + width / 4, y + 60, width / 2);
+            edges.push({ u: id, v: rightId, weight: 0, directed: true });
+        }
+        return id;
+    };
+
+    build(n, 400, 50, 800);
+    return { nodes, edges };
+};
+
+// 2. Hanoi Solver
+export const solveHanoi = (n: number): { disk: number, from: number, to: number }[] => {
+    const moves: { disk: number, from: number, to: number }[] = [];
+    const move = (count: number, from: number, to: number, aux: number) => {
+        if (count === 1) {
+            moves.push({ disk: 1, from, to });
+            return;
+        }
+        move(count - 1, from, aux, to);
+        moves.push({ disk: count, from, to });
+        move(count - 1, aux, to, from);
+    };
+    move(n, 0, 2, 1);
+    return moves;
+};
+
+// 3. Simple List Generator (for Reverse List)
+export const generateSimpleList = (size: number): number[] => {
+    return Array.from({length: size}, (_, i) => i + 1);
+};
 
 // --- TRIE UTILS ---
 export const generateTrieLayout = (words: string[]): TreeNode[] => {

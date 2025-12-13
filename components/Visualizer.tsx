@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Plus, GitBranch, Zap, ArrowDown, MoveHorizontal, Search, RefreshCw, MousePointerClick, Check, Hash, Grid as GridIcon, Layers, Crown, Footprints, Gauge } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, GitBranch, Zap, ArrowDown, MoveHorizontal, Search, RefreshCw, MousePointerClick, Check, Hash, Grid as GridIcon, Layers, Crown, Footprints, Gauge, Repeat, Box, Divide, List, Shuffle, AlignLeft, Calculator, Type, RefreshCcw as RefreshIcon } from 'lucide-react';
 import { TreeNode, LogStep, CourseLevel, Topic, HashItem, GraphNode, GraphEdge, GridCell, Theme } from '../types';
 import { generateTreeLayout, simulateQuery, simulatePointUpdate, simulateRangeUpdate } from '../utils/treeUtils';
-import { generateTrieLayout, generateHashState, generateUFNodes, generateACLayout, calculateKMPNext, transformManacherString, generateTreapLayout, generateDemoTree, generateBFSGrid, generateDAG, generateBipartiteGraph, generateNQueensBoard, generateCycleGraph } from '../utils/visualizerHelpers';
+import { generateTrieLayout, generateHashState, generateUFNodes, generateACLayout, calculateKMPNext, transformManacherString, generateTreapLayout, generateDemoTree, generateBFSGrid, generateDAG, generateBipartiteGraph, generateNQueensBoard, generateCycleGraph, generateFibCallTree, solveHanoi, generateSimpleList } from '../utils/visualizerHelpers';
 
 const DEFAULT_ARRAY = [1, 3, 5, 7, 9, 11, 13, 15];
 
@@ -121,6 +120,24 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
   const [treeCentroidInput, setTreeCentroidInput] = useState(1);
   const [nodeColors, setNodeColors] = useState<Record<number, string>>({}); // For Bipartite/Topo
 
+  // RECURSION STATE
+  const [hanoiState, setHanoiState] = useState<number[][]>([[3, 2, 1], [], []]); // 3 pegs
+  const [fractalLines, setFractalLines] = useState<{x1:number,y1:number,x2:number,y2:number, depth:number}[]>([]);
+  const [permCurrentPath, setPermCurrentPath] = useState<(number|null)[]>(new Array(3).fill(null));
+  const [permUsed, setPermUsed] = useState<boolean[]>(new Array(4).fill(false)); 
+  const [subsetCurrentPath, setSubsetCurrentPath] = useState<number[]>([]);
+  const [subsetCurrentIdx, setSubsetCurrentIdx] = useState<number>(-1);
+  const [subsetStatus, setSubsetStatus] = useState<'considering'|'included'|'excluded'|'result'>('considering');
+  const [subsetResults, setSubsetResults] = useState<number[][]>([]);
+  
+  // New Recursion States
+  const [gcdState, setGcdState] = useState<{a:number, b:number, formula: string} | null>(null);
+  const [listNodes, setListNodes] = useState<number[]>([]);
+  const [listCurrentIdx, setListCurrentIdx] = useState<number>(-1);
+  const [listOutput, setListOutput] = useState<number[]>([]);
+  const [factState, setFactState] = useState<{n: number, equation: string} | null>(null);
+  const [stringState, setStringState] = useState<{chars: string[], left: number, right: number, swapped: boolean}>({chars: ['H','E','L','L','O'], left: -1, right: -1, swapped: false});
+
   // --- INIT ---
   useEffect(() => {
     handleReset();
@@ -182,6 +199,12 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
             {u: 4, v: 5, weight: 3},
             {u: 5, v: 6, weight: 7},
         ]);
+    } else if (topic === 'recursion_fib') {
+        const {nodes, edges} = generateFibCallTree(5);
+        setGraphNodes(nodes);
+        setGraphEdges(edges);
+    } else if (topic === 'recursion_reverse_list') {
+        setListNodes(generateSimpleList(5)); // 1->2->3->4->5
     }
     
   }, [level, topic, externalData, stData, trieWords, hashData, ufParent, treapData]);
@@ -200,6 +223,8 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
     setGridColorMap({});
     setQueenCells({});
     setQueueState([]); // Reset queue/stack
+    setHanoiState([[3, 2, 1], [], []]);
+    setFractalLines([]);
     
     // Reset Playback Controls
     setIsPaused(false);
@@ -213,6 +238,33 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
     if (topic === 'bfs_multi') {
         setNodeColors({1: '#ef4444', 6: '#ef4444'});
     }
+    if (topic === 'recursion_fib') {
+         const {nodes, edges} = generateFibCallTree(5);
+         setGraphNodes(nodes);
+         setGraphEdges(edges);
+    }
+    if (topic === 'recursion_reverse_list') {
+        setListNodes(generateSimpleList(5));
+        setListCurrentIdx(-1);
+        setListOutput([]);
+    }
+    if (topic === 'recursion_string_rev') {
+        setStringState({chars: ['H','E','L','L','O'], left: -1, right: -1, swapped: false});
+    }
+    if (topic === 'recursion_gcd') {
+        setGcdState(null);
+    }
+    if (topic === 'recursion_factorial') {
+        setFactState(null);
+    }
+    
+    // Reset new recursion states
+    setPermCurrentPath([null, null, null]);
+    setPermUsed([false, false, false, false]);
+    setSubsetCurrentPath([]);
+    setSubsetCurrentIdx(-1);
+    setSubsetStatus('considering');
+    setSubsetResults([]);
   };
 
   const runAnimation = async (steps: LogStep[]) => {
@@ -240,9 +292,8 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
           setActiveNodeId(step.nodeId);
           setHighlightType(step.highlight);
           
-          if (step.queue) {
-              setQueueState(step.queue);
-          }
+          if (step.queue) setQueueState(step.queue);
+          if (step.stack) setQueueState(step.stack); // Handle stack updates
           
           // Custom handlers for specific visual updates
           if (topic === 'bfs_flood' && typeof step.nodeId === 'string') {
@@ -280,6 +331,52 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
               setNodeColors(prev => ({...prev, [Number(step.nodeId)]: color}));
           }
 
+          // RECURSION HANDLERS
+          if (topic === 'recursion_hanoi' && step.hanoiMove) {
+              const { from, to } = step.hanoiMove;
+              setHanoiState(prev => {
+                  const newState = prev.map(arr => [...arr]); // Deep copy
+                  const disk = newState[from].pop();
+                  if (disk) newState[to].push(disk);
+                  return newState;
+              });
+          }
+          if (topic === 'recursion_fractal' && step.fractalLine) {
+              setFractalLines(prev => [...prev, step.fractalLine!]);
+          }
+          
+          if (topic === 'recursion_perm' && step.permState) {
+              setPermCurrentPath(step.permState.currentPath);
+              setPermUsed(step.permState.used);
+          }
+          
+          if (topic === 'recursion_subset' && step.subsetState) {
+              setSubsetCurrentIdx(step.subsetState.index);
+              setSubsetCurrentPath(step.subsetState.currentPath);
+              setSubsetStatus(step.subsetState.status);
+              
+              if (step.subsetState.status === 'result') {
+                  setSubsetResults(prev => [...prev, step.subsetState!.currentPath]);
+              }
+          }
+          
+          if (topic === 'recursion_gcd' && step.gcdState) {
+              setGcdState(step.gcdState);
+          }
+          
+          if (topic === 'recursion_reverse_list' && step.listState) {
+              setListCurrentIdx(step.listState.currentIndex);
+              setListOutput(step.listState.output);
+          }
+          
+          if (topic === 'recursion_factorial' && step.factState) {
+              setFactState(step.factState);
+          }
+          
+          if (topic === 'recursion_string_rev' && step.stringState) {
+              setStringState(step.stringState);
+          }
+
           setLogs(prev => [...prev, step]);
           
           // 3. Dynamic Delay based on Speed
@@ -289,6 +386,456 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
       }
       setIsAnimating(false);
       if(onAnimationComplete) onAnimationComplete();
+  };
+
+  // --- RECURSION ALGO HANDLERS ---
+  const handleFib = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = []; // Track stack for visualization
+      
+      // A simple DFS on the generated graph nodes to mimic execution
+      const dfs = (u: number) => {
+          const nodeLabel = graphNodes.find(n => n.id === u)?.label || `Node ${u}`;
+          stack.push(nodeLabel);
+          
+          steps.push({ 
+              nodeId: u, 
+              message: `调用 ${nodeLabel}`, 
+              highlight: 'visiting',
+              stack: [...stack] // Snapshot stack
+          });
+          
+          const children = graphEdges.filter(e => e.u === u).map(e => e.v).sort((a,b) => a-b);
+          
+          for(const v of children) {
+              dfs(v);
+          }
+          
+          steps.push({ 
+              nodeId: u, 
+              message: `${nodeLabel} 计算完成返回`, 
+              highlight: 'found',
+              stack: [...stack] 
+          });
+          
+          stack.pop();
+      };
+
+      dfs(1); // Root
+      await runAnimation(steps);
+  };
+
+  const handleHanoi = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      // Note: We don't need to manually reset Hanoi state here because handleReset called before this or at mount
+      
+      const hanoi = (n: number, from: number, to: number, aux: number, fromLabel: string, toLabel: string, auxLabel: string) => {
+          const frame = `hanoi(${n}, ${fromLabel}->${toLabel})`;
+          stack.push(frame);
+          
+          steps.push({
+              nodeId: -1,
+              message: `调用 ${frame}`,
+              highlight: 'normal',
+              stack: [...stack]
+          });
+
+          if (n === 1) {
+              steps.push({
+                  nodeId: -1,
+                  message: `移动盘子 1: ${fromLabel} -> ${toLabel}`,
+                  highlight: 'found',
+                  hanoiMove: { disk: 1, from, to },
+                  stack: [...stack]
+              });
+              
+              // Simulate return
+              steps.push({ nodeId: -1, message: `返回 (n=1)`, highlight: 'found', stack: [...stack] });
+              stack.pop();
+              return;
+          }
+          
+          hanoi(n - 1, from, aux, to, fromLabel, auxLabel, toLabel);
+          
+          steps.push({
+              nodeId: -1,
+              message: `移动盘子 ${n}: ${fromLabel} -> ${toLabel}`,
+              highlight: 'found',
+              hanoiMove: { disk: n, from, to },
+              stack: [...stack]
+          });
+          
+          hanoi(n - 1, aux, to, from, auxLabel, toLabel, fromLabel);
+          
+          steps.push({ nodeId: -1, message: `返回 (n=${n})`, highlight: 'found', stack: [...stack] });
+          stack.pop();
+      };
+
+      hanoi(3, 0, 2, 1, 'A', 'C', 'B');
+      await runAnimation(steps);
+  };
+
+  const handleFractal = async () => {
+      const steps: LogStep[] = [];
+      setFractalLines([]);
+      const stack: string[] = [];
+      
+      const draw = (x: number, y: number, len: number, angle: number, depth: number) => {
+          const frame = `draw(d=${depth})`;
+          stack.push(frame);
+          
+          steps.push({
+              nodeId: -1,
+              message: `绘制分支 depth=${depth}`,
+              highlight: 'normal',
+              stack: [...stack]
+          });
+          
+          if (depth === 0) {
+              stack.pop();
+              return;
+          }
+          
+          const x2 = x + len * Math.cos(angle * Math.PI / 180);
+          const y2 = y - len * Math.sin(angle * Math.PI / 180);
+          
+          steps.push({
+              nodeId: -1,
+              message: `延伸线条`,
+              highlight: 'normal',
+              fractalLine: { x1: x, y1: y, x2: x2, y2: y2, depth },
+              stack: [...stack]
+          });
+          
+          draw(x2, y2, len * 0.7, angle + 30, depth - 1);
+          draw(x2, y2, len * 0.7, angle - 30, depth - 1);
+          
+          stack.pop();
+      };
+
+      draw(400, 350, 100, 90, 8); // Start from bottom center
+      await runAnimation(steps);
+  };
+
+  const handlePermutation = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      const n = 3;
+      const path: (number|null)[] = new Array(n).fill(null);
+      const used: boolean[] = new Array(n + 1).fill(false);
+
+      const dfs = (index: number) => {
+          stack.push(`dfs(idx=${index})`);
+          steps.push({
+              nodeId: -1,
+              message: `进入递归: 正在填第 ${index+1} 个空位`,
+              highlight: 'visiting',
+              stack: [...stack],
+              permState: { currentPath: [...path], used: [...used] }
+          });
+
+          if (index === n) {
+              steps.push({
+                  nodeId: -1,
+                  message: `填满了！找到一个解: [${path.join(', ')}]`,
+                  highlight: 'found',
+                  stack: [...stack],
+                  permState: { currentPath: [...path], used: [...used] }
+              });
+              stack.pop();
+              return;
+          }
+
+          for (let i = 1; i <= n; i++) {
+              if (!used[i]) {
+                  // Choose
+                  used[i] = true;
+                  path[index] = i;
+                  steps.push({
+                      nodeId: -1,
+                      message: `尝试填入数字 ${i}`,
+                      highlight: 'updating',
+                      stack: [...stack],
+                      permState: { currentPath: [...path], used: [...used] }
+                  });
+
+                  // Recurse
+                  dfs(index + 1);
+
+                  // Backtrack
+                  used[i] = false;
+                  path[index] = null;
+                  steps.push({
+                      nodeId: -1,
+                      message: `回溯: 拿出数字 ${i}，尝试下一个可能`,
+                      highlight: 'backtrack',
+                      stack: [...stack],
+                      permState: { currentPath: [...path], used: [...used] }
+                  });
+              }
+          }
+          stack.pop();
+      };
+
+      dfs(0);
+      await runAnimation(steps);
+  };
+
+  const handleSubset = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      const arr = [1, 2, 3];
+      const n = arr.length;
+      const path: number[] = [];
+      
+      setSubsetResults([]); // Clear results
+
+      const dfs = (index: number) => {
+          stack.push(`dfs(idx=${index})`);
+          steps.push({
+              nodeId: -1,
+              message: `进入递归: 考虑第 ${index+1} 个数字 (${index < n ? arr[index] : '结束'})`,
+              highlight: 'visiting',
+              stack: [...stack],
+              subsetState: { index: index, currentPath: [...path], status: 'considering' }
+          });
+
+          if (index === n) {
+              steps.push({
+                  nodeId: -1,
+                  message: `所有数字考虑完毕，得到子集: {${path.join(', ')}}`,
+                  highlight: 'found',
+                  stack: [...stack],
+                  subsetState: { index: index, currentPath: [...path], status: 'result' }
+              });
+              stack.pop();
+              return;
+          }
+
+          // Option 1: Include arr[index]
+          path.push(arr[index]);
+          steps.push({
+              nodeId: -1,
+              message: `决策 1: 选中数字 ${arr[index]}`,
+              highlight: 'found',
+              stack: [...stack],
+              subsetState: { index: index, currentPath: [...path], status: 'included' }
+          });
+          dfs(index + 1);
+          path.pop(); // Backtrack
+
+          // Option 2: Exclude arr[index]
+          steps.push({
+              nodeId: -1,
+              message: `决策 2: 不选数字 ${arr[index]} (回溯后)`,
+              highlight: 'backtrack',
+              stack: [...stack],
+              subsetState: { index: index, currentPath: [...path], status: 'excluded' }
+          });
+          dfs(index + 1);
+
+          stack.pop();
+      };
+
+      dfs(0);
+      await runAnimation(steps);
+  };
+  
+  const handleGCD = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      
+      const gcd = (a: number, b: number) => {
+          stack.push(`gcd(${a}, ${b})`);
+          steps.push({
+              nodeId: -1,
+              message: `调用 gcd(${a}, ${b})`,
+              highlight: 'visiting',
+              stack: [...stack],
+              gcdState: { a, b, formula: `?` }
+          });
+          
+          if (b === 0) {
+              steps.push({
+                  nodeId: -1,
+                  message: `b 为 0，找到最大公约数: ${a}`,
+                  highlight: 'found',
+                  stack: [...stack],
+                  gcdState: { a, b, formula: `Answer: ${a}` }
+              });
+              stack.pop();
+              return a;
+          }
+          
+          steps.push({
+              nodeId: -1,
+              message: `下一步: gcd(${b}, ${a} % ${b}) = gcd(${b}, ${a % b})`,
+              highlight: 'updating',
+              stack: [...stack],
+              gcdState: { a, b, formula: `${a} % ${b} = ${a % b}` }
+          });
+          
+          const res = gcd(b, a % b);
+          
+          // Return
+          steps.push({
+              nodeId: -1,
+              message: `返回结果: ${res}`,
+              highlight: 'found',
+              stack: [...stack],
+              gcdState: { a, b, formula: `Got ${res}` }
+          });
+          stack.pop();
+          return res;
+      };
+      
+      gcd(48, 18);
+      await runAnimation(steps);
+  };
+  
+  const handleReverseList = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      const output: number[] = [];
+      const nodes = listNodes;
+      
+      setListOutput([]); // Clear
+      
+      const traverse = (idx: number) => {
+          if (idx >= nodes.length) {
+              stack.push('null');
+              steps.push({
+                  nodeId: -1,
+                  message: `到达链表末尾 (NULL)，准备回溯`,
+                  highlight: 'visiting',
+                  stack: [...stack],
+                  listState: { nodes, currentIndex: idx, output: [...output] }
+              });
+              stack.pop();
+              return;
+          }
+          
+          stack.push(`Node(${nodes[idx]})`);
+          steps.push({
+              nodeId: -1,
+              message: `访问节点 ${nodes[idx]}，进入下一层`,
+              highlight: 'visiting',
+              stack: [...stack],
+              listState: { nodes, currentIndex: idx, output: [...output] }
+          });
+          
+          traverse(idx + 1);
+          
+          output.push(nodes[idx]);
+          steps.push({
+              nodeId: -1,
+              message: `回到节点 ${nodes[idx]}，执行打印`,
+              highlight: 'backtrack',
+              stack: [...stack],
+              listState: { nodes, currentIndex: idx, output: [...output] }
+          });
+          
+          stack.pop();
+      };
+      
+      traverse(0);
+      await runAnimation(steps);
+  };
+  
+  const handleFactorial = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      
+      const fact = (n: number) => {
+          stack.push(`fact(${n})`);
+          steps.push({
+              nodeId: -1,
+              message: `计算 fact(${n})`,
+              highlight: 'visiting',
+              stack: [...stack],
+              factState: { n, equation: `${n} * fact(${n-1})` }
+          });
+          
+          if (n <= 1) {
+              steps.push({
+                  nodeId: -1,
+                  message: `基本情况 n=${n}, 返回 1`,
+                  highlight: 'found',
+                  stack: [...stack],
+                  factState: { n, equation: `1` }
+              });
+              stack.pop();
+              return 1;
+          }
+          
+          const res = fact(n - 1);
+          
+          steps.push({
+              nodeId: -1,
+              message: `fact(${n}) = ${n} * ${res} = ${n * res}`,
+              highlight: 'backtrack',
+              stack: [...stack],
+              factState: { n, equation: `${n} * ${res} = ${n * res}` }
+          });
+          
+          stack.pop();
+          return n * res;
+      };
+      
+      fact(5);
+      await runAnimation(steps);
+  };
+  
+  const handleStringRev = async () => {
+      const steps: LogStep[] = [];
+      const stack: string[] = [];
+      // Use local copy for simulation
+      const chars = ['H','E','L','L','O'];
+      
+      const rev = (l: number, r: number) => {
+          if (l >= r) {
+              stack.push(`rev(${l},${r})`);
+              steps.push({
+                  nodeId: -1,
+                  message: `指针相遇或交叉 (L=${l}, R=${r})，停止`,
+                  highlight: 'found',
+                  stack: [...stack],
+                  stringState: { chars: [...chars], left: l, right: r, swapped: false }
+              });
+              stack.pop();
+              return;
+          }
+          
+          stack.push(`rev(${l},${r})`);
+          steps.push({
+              nodeId: -1,
+              message: `交换 s[${l}]='${chars[l]}' 和 s[${r}]='${chars[r]}'`,
+              highlight: 'visiting',
+              stack: [...stack],
+              stringState: { chars: [...chars], left: l, right: r, swapped: false }
+          });
+          
+          // Swap
+          const temp = chars[l];
+          chars[l] = chars[r];
+          chars[r] = temp;
+          
+          steps.push({
+              nodeId: -1,
+              message: `交换完成: ${chars.join('')}`,
+              highlight: 'updating',
+              stack: [...stack],
+              stringState: { chars: [...chars], left: l, right: r, swapped: true }
+          });
+          
+          rev(l + 1, r - 1);
+          
+          stack.pop();
+      };
+      
+      rev(0, 4);
+      await runAnimation(steps);
   };
 
   // --- DFS HANDLERS ---
@@ -740,6 +1287,134 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
           </div>
       );
 
+      // RECURSION CONTROLS
+      if (topic === 'recursion_fib') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Repeat className="w-3 h-3"/> 递归演示</div>
+                      <button onClick={handleFib} disabled={isAnimating} className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Calculate Fib(5)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_hanoi') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Box className="w-3 h-3"/> 汉诺塔演示</div>
+                      <button onClick={handleHanoi} disabled={isAnimating} className="w-full bg-purple-600 hover:bg-purple-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Solve Hanoi(3)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_fractal') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Divide className="w-3 h-3"/> 分形树演示</div>
+                      <button onClick={handleFractal} disabled={isAnimating} className="w-full bg-green-600 hover:bg-green-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Grow Fractal Tree</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_perm') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Shuffle className="w-3 h-3"/> 全排列演示</div>
+                      <button onClick={handlePermutation} disabled={isAnimating} className="w-full bg-orange-600 hover:bg-orange-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Start Permutations (3)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_subset') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><List className="w-3 h-3"/> 子集生成演示</div>
+                      <button onClick={handleSubset} disabled={isAnimating} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Generate Subsets (3)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_gcd') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><RefreshIcon className="w-3 h-3"/> 辗转相除演示</div>
+                      <button onClick={handleGCD} disabled={isAnimating} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>GCD(48, 18)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_reverse_list') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><AlignLeft className="w-3 h-3"/> 链表逆序演示</div>
+                      <button onClick={handleReverseList} disabled={isAnimating} className="w-full bg-pink-600 hover:bg-pink-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Reverse Print List</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_factorial') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Calculator className="w-3 h-3"/> 阶乘演示</div>
+                      <button onClick={handleFactorial} disabled={isAnimating} className="w-full bg-red-600 hover:bg-red-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Calculate Factorial(5)</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+      if (topic === 'recursion_string_rev') {
+           return (
+              <div className="space-y-4">
+                  {playbackControls}
+                  <div className="bg-dark-lighter p-3 rounded-lg border border-gray-700">
+                      <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Type className="w-3 h-3"/> 字符串反转演示</div>
+                      <button onClick={handleStringRev} disabled={isAnimating} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded text-xs flex justify-between">
+                             <span>Reverse String</span>
+                             <Play className="w-3 h-3" />
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+
       // DFS CONTROLS
       if (topic === 'dfs_basic' || topic === 'dfs_connect') {
           return (
@@ -1019,7 +1694,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
           return (
              <div className="relative w-full h-full">
                  <svg className="w-full h-full" viewBox="0 0 800 400">
-                     {gridState.map((row, r) => row.map((cell, c) => (
+                     {gridState.map((row, r) => (row.map((cell, c) => (
                          <g key={`${r}-${c}`}>
                              <rect 
                                 x={200 + c * 50}
@@ -1042,14 +1717,14 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                                  <text x={200 + c * 50 + 22} y={50 + r * 50 + 32} fontSize="30" textAnchor="middle" fill="#ef4444">✕</text>
                              )}
                          </g>
-                     )))}
+                     ))))}
                  </svg>
              </div>
           )
       }
 
       // 3. GRAPH RENDERER
-      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_topo', 'bfs_bipartite', 'bfs_multi', 'dfs_basic', 'dfs_connect', 'dfs_graph_algo'].includes(topic!)) {
+      if (['mst', 'shortest_path', 'tarjan', 'diff_constraints', 'bfs_basic', 'bfs_shortest', 'bfs_state', 'bfs_topo', 'bfs_bipartite', 'bfs_multi', 'dfs_basic', 'dfs_connect', 'dfs_graph_algo', 'recursion_fib'].includes(topic!)) {
           return (
               <div className="relative w-full h-full">
                   <svg className="w-full h-full" viewBox="0 0 800 400">
@@ -1072,7 +1747,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                       {graphNodes.map(n => (
                           <g key={n.id}>
                               <circle 
-                                 cx={n.x} cy={n.y} r={22} 
+                                 cx={n.x} cy={n.y} r={topic === 'recursion_fib' ? 18 : 22} 
                                  fill={activeNodeId === n.id ? (highlightType === 'visiting' ? '#f59e0b' : highlightType === 'found' ? '#10b981' : highlightType === 'fail' ? '#ef4444' : '#3b82f6') : (nodeColors[n.id] || colors.nodeFill)} 
                                  stroke={activeNodeId === n.id ? '#fff' : colors.nodeStroke} 
                                  strokeWidth="2" 
@@ -1103,8 +1778,304 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
               </div>
           );
       }
+      
+      // 4. HANOI RENDERER
+      if (topic === 'recursion_hanoi') {
+          return (
+              <div className="relative w-full h-full flex items-end justify-center pb-10 gap-20">
+                  {/* Pegs */}
+                  {[0, 1, 2].map(pegIdx => (
+                      <div key={pegIdx} className="relative flex flex-col-reverse items-center w-32 h-64">
+                           {/* Stick */}
+                           <div className="absolute bottom-0 w-2 h-48 bg-gray-500 rounded-t-lg z-0"></div>
+                           {/* Base */}
+                           <div className="absolute bottom-[-10px] w-32 h-2 bg-gray-600 rounded"></div>
+                           {/* Label */}
+                           <div className="absolute -bottom-8 font-bold text-gray-400">{String.fromCharCode(65+pegIdx)}</div>
+                           
+                           {/* Disks */}
+                           <AnimatePresence>
+                               {hanoiState[pegIdx].map((diskSize, i) => (
+                                   <motion.div
+                                      layoutId={`disk-${diskSize}`}
+                                      key={diskSize}
+                                      initial={{ opacity: 0, y: -50 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0 }}
+                                      className="z-10 h-6 rounded border border-white/20 mb-1"
+                                      style={{ 
+                                          width: `${diskSize * 25 + 20}%`,
+                                          backgroundColor: diskSize === 1 ? '#ef4444' : diskSize === 2 ? '#3b82f6' : '#f59e0b'
+                                      }}
+                                   />
+                               ))}
+                           </AnimatePresence>
+                      </div>
+                  ))}
+              </div>
+          )
+      }
 
-      // 4. TREE ALGO RENDERER
+      // 5. FRACTAL RENDERER
+      if (topic === 'recursion_fractal') {
+          return (
+              <div className="relative w-full h-full">
+                  <svg className="w-full h-full" viewBox="0 0 800 400">
+                      {fractalLines.map((line, i) => (
+                          <motion.line
+                             key={i}
+                             initial={{ pathLength: 0, opacity: 0 }}
+                             animate={{ pathLength: 1, opacity: 1 }}
+                             x1={line.x1} y1={line.y1}
+                             x2={line.x2} y2={line.y2}
+                             stroke={line.depth < 3 ? '#22c55e' : '#a855f7'}
+                             strokeWidth={Math.max(1, line.depth)}
+                             strokeLinecap="round"
+                          />
+                      ))}
+                  </svg>
+              </div>
+          )
+      }
+      
+      // 6. PERMUTATION RENDERER
+      if (topic === 'recursion_perm') {
+          return (
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <div className="mb-12 text-gray-400 text-sm font-mono tracking-wider">TARGET: 3 Slots</div>
+                  
+                  {/* Slots */}
+                  <div className="flex gap-4 mb-16">
+                      {permCurrentPath.map((val, i) => (
+                          <motion.div 
+                             key={i}
+                             className={`w-20 h-24 rounded-lg border-2 flex items-center justify-center text-4xl font-bold transition-colors ${val !== null ? 'border-orange-500 bg-orange-900/30 text-white' : 'border-gray-700 bg-gray-800/50 text-gray-600'}`}
+                          >
+                              {val !== null ? val : "?"}
+                          </motion.div>
+                      ))}
+                  </div>
+                  
+                  {/* Number Pool */}
+                  <div className="flex gap-4 p-4 bg-gray-900 rounded-xl border border-gray-700">
+                      <div className="text-xs text-gray-500 font-mono self-center mr-2">POOL:</div>
+                      {[1, 2, 3].map(num => (
+                          <div 
+                             key={num}
+                             className={`w-12 h-12 rounded-full flex items-center justify-center font-bold border transition-all ${permUsed[num] ? 'bg-gray-800 text-gray-600 border-gray-700 scale-90 opacity-50' : 'bg-blue-600 text-white border-blue-400 shadow-lg scale-100'}`}
+                          >
+                              {num}
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )
+      }
+      
+      // 7. SUBSET RENDERER
+      if (topic === 'recursion_subset') {
+          const arr = [1, 2, 3];
+          return (
+              <div className="relative w-full h-full flex flex-row p-8 gap-8">
+                  {/* Left: Current Decision Process */}
+                  <div className="flex-1 flex flex-col items-center justify-center border-r border-gray-700 pr-8">
+                      <div className="text-gray-400 text-sm font-mono tracking-wider mb-8">CURRENT SUBSET</div>
+                      
+                      {/* Current subset build */}
+                      <div className="flex flex-wrap gap-2 mb-12 min-h-[60px] p-4 bg-gray-900/50 rounded-lg w-full justify-center">
+                          <AnimatePresence>
+                              {subsetCurrentPath.length === 0 && <span className="text-gray-600 italic">Empty Set</span>}
+                              {subsetCurrentPath.map((val) => (
+                                  <motion.div
+                                      key={val}
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      exit={{ scale: 0 }}
+                                      className="w-10 h-10 rounded bg-cyan-600 text-white flex items-center justify-center font-bold shadow"
+                                  >
+                                      {val}
+                                  </motion.div>
+                              ))}
+                          </AnimatePresence>
+                      </div>
+                      
+                      {/* Decision visual */}
+                      <div className="flex gap-2">
+                          {arr.map((val, i) => (
+                              <div key={i} className={`relative p-4 rounded-lg border-2 transition-all flex flex-col items-center ${i === subsetCurrentIdx ? 'border-yellow-500 bg-yellow-900/20 scale-110 z-10' : 'border-gray-700 bg-gray-800 opacity-50'}`}>
+                                  <span className="text-2xl font-bold text-white mb-2">{val}</span>
+                                  {i === subsetCurrentIdx && (
+                                      <motion.div 
+                                        initial={{ opacity: 0, y: 10 }} 
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className={`text-xs font-bold px-2 py-1 rounded ${subsetStatus === 'included' ? 'bg-green-600' : subsetStatus === 'excluded' ? 'bg-red-600' : 'bg-yellow-600'}`}
+                                      >
+                                          {subsetStatus === 'included' ? 'SELECTED' : subsetStatus === 'excluded' ? 'SKIPPED' : '?'}
+                                      </motion.div>
+                                  )}
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+                  
+                  {/* Right: Results List */}
+                  <div className="w-48 flex flex-col overflow-hidden">
+                      <div className="text-gray-400 text-sm font-mono tracking-wider mb-4">RESULTS ({subsetResults.length})</div>
+                      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                          {subsetResults.map((res, i) => (
+                              <motion.div 
+                                  key={i}
+                                  initial={{ opacity: 0, x: 20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  className="p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300 font-mono"
+                              >
+                                  {res.length === 0 ? "{ }" : `{ ${res.join(', ')} }`}
+                              </motion.div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+          )
+      }
+      
+      // 8. GCD RENDERER
+      if (topic === 'recursion_gcd') {
+          return (
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <div className="mb-12">
+                      <motion.div
+                         key={gcdState?.formula}
+                         initial={{ opacity: 0, scale: 0.8 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         className="text-4xl font-bold text-white bg-gray-800/80 px-8 py-6 rounded-2xl border border-gray-600 shadow-2xl backdrop-blur-sm"
+                      >
+                          {gcdState?.formula || "GCD(?, ?)"}
+                      </motion.div>
+                  </div>
+                  <div className="flex gap-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                          <span className="text-gray-400 text-sm font-mono">A</span>
+                          <div className="w-24 h-24 rounded-full bg-indigo-600 text-white flex items-center justify-center text-3xl font-bold shadow-lg border-4 border-indigo-400">
+                              {gcdState?.a ?? "?"}
+                          </div>
+                      </div>
+                      <div className="flex items-center text-gray-500 font-mono text-xl">
+                          %
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                          <span className="text-gray-400 text-sm font-mono">B</span>
+                          <div className="w-24 h-24 rounded-full bg-purple-600 text-white flex items-center justify-center text-3xl font-bold shadow-lg border-4 border-purple-400">
+                              {gcdState?.b ?? "?"}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          );
+      }
+      
+      // 9. REVERSE LIST RENDERER
+      if (topic === 'recursion_reverse_list') {
+          return (
+              <div className="relative w-full h-full flex flex-col p-8">
+                  {/* List View */}
+                  <div className="flex items-center justify-center gap-2 mb-16 mt-8">
+                      {listNodes.map((val, i) => (
+                          <React.Fragment key={i}>
+                              <div className={`relative w-16 h-16 rounded-lg flex items-center justify-center border-2 transition-all shadow-lg ${i === listCurrentIdx ? 'bg-pink-600 border-white scale-110 z-10' : 'bg-gray-800 border-gray-600 text-gray-400'}`}>
+                                  <span className="text-xl font-bold text-white">{val}</span>
+                                  {i === listCurrentIdx && (
+                                      <motion.div 
+                                        layoutId="list-cursor"
+                                        className="absolute -top-3 -right-3 w-6 h-6 bg-yellow-400 rounded-full border-2 border-black z-20 shadow-sm"
+                                      />
+                                  )}
+                              </div>
+                              {i < listNodes.length && (
+                                  <div className="w-8 h-0.5 bg-gray-600"></div>
+                              )}
+                          </React.Fragment>
+                      ))}
+                      <div className={`px-3 py-1 rounded text-xs font-mono ${listCurrentIdx === listNodes.length ? 'bg-red-500/20 text-red-400 border border-red-500' : 'bg-gray-800 text-gray-500 border border-gray-700'}`}>
+                          NULL
+                      </div>
+                  </div>
+                  
+                  {/* Output View */}
+                  <div className="flex-1 flex flex-col items-center">
+                      <div className="text-xs text-gray-400 font-mono tracking-wider mb-4 border-b border-gray-700 pb-1 w-full text-center">OUTPUT STREAM</div>
+                      <div className="flex gap-3 overflow-hidden h-16 items-center">
+                          <AnimatePresence>
+                              {listOutput.map((val, i) => (
+                                  <motion.div
+                                      key={`${val}-${i}`}
+                                      initial={{ opacity: 0, y: 20 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold font-mono shadow-md border border-green-400"
+                                  >
+                                      {val}
+                                  </motion.div>
+                              ))}
+                          </AnimatePresence>
+                          {listOutput.length === 0 && <span className="text-gray-600 text-sm italic">Waiting for recursion return...</span>}
+                      </div>
+                  </div>
+              </div>
+          );
+      }
+      
+      // 10. FACTORIAL RENDERER
+      if (topic === 'recursion_factorial') {
+          return (
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <motion.div 
+                      key={factState?.equation}
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-3xl md:text-5xl font-bold text-white mb-8 text-center leading-tight drop-shadow-lg"
+                  >
+                      {factState?.equation || "Calculating..."}
+                  </motion.div>
+                  <div className="text-gray-400 font-mono text-sm">
+                      Current N: <span className="text-red-400 text-lg font-bold ml-2">{factState?.n ?? '?'}</span>
+                  </div>
+              </div>
+          );
+      }
+      
+      // 11. STRING REVERSE RENDERER
+      if (topic === 'recursion_string_rev') {
+          return (
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <div className="flex gap-4">
+                      {stringState.chars.map((char, i) => (
+                          <div key={i} className="flex flex-col items-center gap-2">
+                              {/* Indices markers */}
+                              <div className="h-6 w-full flex justify-center relative">
+                                  {i === stringState.left && <motion.div layoutId="ptr-l" className="text-green-400 font-bold text-xs">L</motion.div>}
+                                  {i === stringState.right && <motion.div layoutId="ptr-r" className="text-red-400 font-bold text-xs">R</motion.div>}
+                              </div>
+                              
+                              {/* Char Box */}
+                              <motion.div 
+                                  layout
+                                  className={`w-16 h-20 rounded-lg flex items-center justify-center text-4xl font-bold border-2 shadow-xl ${
+                                      (i === stringState.left || i === stringState.right) 
+                                      ? (stringState.swapped ? 'bg-green-600 border-green-400 text-white' : 'bg-yellow-600 border-yellow-400 text-white')
+                                      : 'bg-gray-800 border-gray-600 text-gray-300'
+                                  }`}
+                              >
+                                  {char}
+                              </motion.div>
+                              
+                              <div className="text-gray-600 text-xs font-mono">{i}</div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          );
+      }
+
+      // 12. TREE ALGO RENDERER
       if (['tree_diameter', 'tree_centroid', 'tree_center', 'tree_dp', 'tree_knapsack'].includes(topic!)) {
            // Reuse Graph Renderer above effectively, but keeping this block structure for safety if needed specific tree visuals
             return (
@@ -1150,7 +2121,7 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
            )
       }
 
-      // 5. GENERIC TREE (Seg, Trie, Treap, UF)
+      // 13. GENERIC TREE (Seg, Trie, Treap, UF)
       return (
          <svg className="w-full h-full" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
             {/* ... Existing generic tree render ... */}
@@ -1235,8 +2206,8 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                 {renderCanvas()}
             </div>
             
-            {/* Vertical Stack Sidebar for DFS */}
-            {topic?.startsWith('dfs') && (
+            {/* Vertical Stack Sidebar for DFS & Recursion */}
+            {(topic?.startsWith('dfs') || topic?.startsWith('recursion')) && (
                 <div className="w-40 border-l border-gray-700 bg-black/20 flex flex-col shrink-0">
                     <div className="p-3 bg-gray-800/50 border-b border-gray-700 font-bold text-xs text-gray-400 text-center uppercase tracking-wider flex items-center justify-center gap-2">
                         <Layers className="w-4 h-4" /> 递归栈
@@ -1255,26 +2226,17 @@ const Visualizer: React.FC<Props> = ({ level, topic = 'segment_tree', externalDa
                                 >
                                     <span className="z-10">{item}</span>
                                     {i === 0 && (
-                                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-400 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
+                                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
                                     )}
                                 </motion.div>
                             ))}
                         </AnimatePresence>
-                        {queueState.length === 0 && (
-                            <div className="text-gray-600 text-xs text-center mt-10 italic">
-                                Stack Empty
-                            </div>
-                        )}
-                    </div>
-                    <div className="p-2 border-t border-gray-700 text-[10px] text-gray-500 text-center">
-                        Top (Current)
                     </div>
                 </div>
             )}
          </div>
-
-         {/* Bottom Area: BFS Queue */}
-         {(topic?.startsWith('bfs') || topic === 'tree_diameter') && renderQueue()}
+          {/* Bottom Queue Bar for non-stack algorithms */}
+          {!topic?.startsWith('dfs') && !topic?.startsWith('recursion') && renderQueue()}
       </div>
     </div>
   );

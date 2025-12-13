@@ -1,7 +1,6 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Volume2, StopCircle, Loader } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChevronRight, ChevronLeft, Terminal, BookOpen, Brain, Zap, ClipboardList, Lightbulb, Volume2, StopCircle, Loader, Copy } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Topic, LectureStep, Theme } from '../types';
 import { 
@@ -10,7 +9,9 @@ import {
     SWEEP_LINE_LECTURE, TREE_DIAMETER_LECTURE, TREE_CENTROID_LECTURE, TREE_CENTER_LECTURE, TREE_DP_LECTURE, TREE_KNAPSACK_LECTURE,
     SEGMENT_TREE_LECTURE, TRIE_LECTURE, HASH_LECTURE, UNION_FIND_LECTURE,
     BFS_BASIC_LECTURE, BFS_SHORTEST_PATH_LECTURE, BFS_STATE_SPACE_LECTURE, BFS_FLOOD_FILL_LECTURE, BFS_TOPO_SORT_LECTURE, BFS_BIPARTITE_LECTURE, BFS_MULTI_SOURCE_LECTURE,
-    DFS_BASIC_LECTURE, DFS_CONNECT_LECTURE, DFS_PERM_LECTURE, DFS_MAZE_LECTURE, DFS_NQUEENS_LECTURE, DFS_BAG_LECTURE, DFS_GRAPH_ALGO_LECTURE, DFS_PRUNING_LECTURE
+    DFS_BASIC_LECTURE, DFS_CONNECT_LECTURE, DFS_PERM_LECTURE, DFS_MAZE_LECTURE, DFS_NQUEENS_LECTURE, DFS_BAG_LECTURE, DFS_GRAPH_ALGO_LECTURE, DFS_PRUNING_LECTURE,
+    RECURSION_FIB_LECTURE, RECURSION_HANOI_LECTURE, RECURSION_FRACTAL_LECTURE, RECURSION_PERM_LECTURE, RECURSION_SUBSET_LECTURE,
+    RECURSION_FACTORIAL_LECTURE, RECURSION_GCD_LECTURE, RECURSION_STRING_REV_LECTURE, RECURSION_REVERSE_LIST_LECTURE
 } from '../utils/lectureData';
 import Visualizer from './Visualizer';
 
@@ -71,6 +72,15 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
+  // RESET STATE WHEN TOPIC CHANGES
+  useEffect(() => {
+    setCurrentStepIdx(0);
+    setQuizSelected(null);
+    setQuizFeedback('');
+    setCodeAnswers({});
+    stopAudio();
+  }, [topic]);
+
   let steps: LectureStep[] = [];
   
   // MAPPING
@@ -113,6 +123,17 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
       case 'dfs_graph_algo': steps = DFS_GRAPH_ALGO_LECTURE; break;
       case 'dfs_pruning': steps = DFS_PRUNING_LECTURE; break;
 
+      // Recursion Module
+      case 'recursion_fib': steps = RECURSION_FIB_LECTURE; break;
+      case 'recursion_hanoi': steps = RECURSION_HANOI_LECTURE; break;
+      case 'recursion_fractal': steps = RECURSION_FRACTAL_LECTURE; break;
+      case 'recursion_perm': steps = RECURSION_PERM_LECTURE; break;
+      case 'recursion_subset': steps = RECURSION_SUBSET_LECTURE; break;
+      case 'recursion_factorial': steps = RECURSION_FACTORIAL_LECTURE; break;
+      case 'recursion_gcd': steps = RECURSION_GCD_LECTURE; break;
+      case 'recursion_string_rev': steps = RECURSION_STRING_REV_LECTURE; break;
+      case 'recursion_reverse_list': steps = RECURSION_REVERSE_LIST_LECTURE; break;
+
       default: steps = [];
   }
 
@@ -129,7 +150,7 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
   useEffect(() => {
     stopAudio();
     return () => stopAudio();
-  }, [currentStepIdx, topic]);
+  }, [currentStepIdx]);
 
   const stopAudio = () => {
     if (audioSourceRef.current) {
@@ -320,6 +341,49 @@ const LectureMode: React.FC<Props> = ({ topic, theme = 'slate' }) => {
                              }
                              return <span key={i} className="text-gray-300">{part}</span>
                          })}
+                     </div>
+                 </div>
+             );
+         case 'full_code':
+             return (
+                 <div className="flex flex-col h-full animate-fade-in">
+                     <div className="prose prose-invert max-w-none text-gray-300 mb-6">
+                         {currentStep.content.split('\n').map((line, i) => {
+                             if (line.trim().startsWith('#')) return <h3 key={i} className="text-xl font-bold text-white mt-4 mb-2 flex items-center gap-2"><Terminal className="w-5 h-5 text-primary"/> {line.replace(/#/g, '')}</h3>
+                             if (line.trim().startsWith('**Input**')) return <div key={i} className="font-mono text-sm text-blue-300 mt-2 pl-4 border-l-2 border-blue-500 bg-blue-900/10 p-1">{line.replace(/\*\*/g, '')}</div>
+                             if (line.trim().startsWith('**Output**')) return <div key={i} className="font-mono text-sm text-green-300 mb-2 pl-4 border-l-2 border-green-500 bg-green-900/10 p-1">{line.replace(/\*\*/g, '')}</div>
+                             return <p key={i} className="mb-1 leading-relaxed">{line}</p>
+                         })}
+                     </div>
+                     <div className="flex-1 bg-[#1e1e1e] rounded-xl border border-gray-700 overflow-hidden flex flex-col shadow-lg">
+                         <div className="bg-[#2d2d2d] px-4 py-2 flex justify-between items-center border-b border-black/20">
+                             <div className="flex items-center gap-2">
+                                 <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+                                 <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                                 <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                                 <span className="ml-2 text-xs text-gray-400 font-mono">solution.cpp</span>
+                             </div>
+                             <button 
+                                 onClick={() => {
+                                     navigator.clipboard.writeText(currentStep.codeSnippet || '');
+                                     alert('代码已复制!');
+                                 }}
+                                 className="text-gray-400 hover:text-white transition p-1"
+                                 title="复制代码"
+                             >
+                                 <Copy className="w-4 h-4" />
+                             </button>
+                         </div>
+                         <pre className="flex-1 overflow-auto p-6 font-mono text-sm text-gray-300 custom-scrollbar leading-relaxed">
+                             <code dangerouslySetInnerHTML={{
+                                 __html: (currentStep.codeSnippet || '')
+                                     .replace(/</g, '&lt;')
+                                     .replace(/>/g, '&gt;')
+                                     .replace(/\/\/.*/g, '<span class="text-gray-500 italic">$&</span>')
+                                     .replace(/\b(int|void|using|namespace|return|if|else|const|for|while|long long|bool|char|double|float)\b/g, '<span class="text-purple-400 font-bold">$1</span>')
+                                     .replace(/\b(cout|cin|printf|scanf|vector|string|swap|min|max|cos|sin)\b/g, '<span class="text-yellow-200">$1</span>')
+                             }} />
+                         </pre>
                      </div>
                  </div>
              );

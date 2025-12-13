@@ -1,7 +1,1259 @@
 
 import { LectureStep } from '../types';
 
-// ================= SEGMENT TREE (Keep existing) =================
+// ================= RECURSION MODULE =================
+
+export const RECURSION_FACTORIAL_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 阶乘：定义的递归',
+    content: `
+### 什么是阶乘？
+一个正整数 n 的阶乘 (factorial) 是所有小于及等于 n 的正整数的积。
+记作 \`n!\`。
+- 3! = 3 × 2 × 1 = 6
+- 5! = 5 × 4 × 3 × 2 × 1 = 120
+
+### 递归定义
+我们可以把定义换个写法：
+\`n! = n × (n-1)!\`
+这简直就是天然的递归结构！只要解决了 (n-1)!，乘上 n 就是 n!。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：层层展开',
+    content: `
+**实验目标**：观察递归函数的“递”与“归”。
+
+**操作步骤**：
+1. 点击控制台的 **Calculate Factorial(5)**。
+2. 观察屏幕中央的算式展开过程。
+   - 递：它会一直问 "fact(4) 是多少？", "fact(3) 是多少？"... 直到 fact(1)。
+   - 归：fact(1) 告诉 fact(2) 答案，fact(2) 算完告诉 fact(3)...
+3. 注意右侧的递归栈，它会越堆越高，直到触底反弹。
+    `
+  },
+  {
+    id: 3,
+    type: 'conclusion',
+    title: '3. 实验结论',
+    content: `
+### 递归的代价
+你注意到了吗？右侧的栈每调用一次就会长高一截。
+每一次函数调用 \`factorial(n)\` 都会在内存的**栈 (Stack)** 中开辟一块空间，用来保存当前的 n 值和返回地址。
+
+- 计算 5! 需要 6 层栈帧（5,4,3,2,1,0）。
+- 计算 10000! 需要 10001 层栈帧。
+
+**风险**：如果 n 太大，栈空间会被耗尽，导致 **Stack Overflow** 错误。工程中通常使用迭代或尾递归优化来解决。
+    `
+  },
+  {
+    id: 4,
+    type: 'code',
+    title: '4. 实战填空：递归基',
+    content: `所有的递归都需要一个停止的条件，否则会无限循环（Stack Overflow）。`,
+    codeProblem: {
+      template: `int factorial(int n) {
+    // 递归出口
+    if ({{0}}) {
+        return 1;
+    }
+    // 递归调用
+    return n * factorial(n - 1);
+}`,
+      blanks: [
+        { id: 0, question: "最小的子问题是什么？", options: [{ label: "n <= 1", value: "n <= 1", isCorrect: true }, { label: "n == 0", value: "n == 0", isCorrect: true }] }
+      ]
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 理解测试',
+    content: '关于栈溢出。',
+    quizData: {
+      id: 1,
+      question: "如果没有写递归基 (Base Case)，程序会发生什么？",
+      options: ["计算出错误结果", "一直运行直到内存耗尽 (Stack Overflow)", "自动停止", "返回 0"],
+      correctAnswer: 1,
+      explanation: "函数会无限次调用自己，每一层调用都需要占用栈空间，最终导致栈溢出崩溃。"
+    }
+  },
+  {
+    id: 6,
+    type: 'full_code',
+    title: '6. 代码实现',
+    content: `
+### 问题描述
+编写一个函数，计算给定非负整数 n 的阶乘。
+
+### 样例
+**Input**: 5
+**Output**: 120
+    `,
+    codeSnippet: `long long factorial(int n) {
+    // 递归基：0! = 1, 1! = 1
+    // 当规模减小到最小时，直接返回结果
+    if (n <= 1) return 1;
+    
+    // 递归步：n! = n * (n-1)!
+    // 相信 factorial(n-1) 能算出正确结果，利用它
+    return n * factorial(n - 1);
+}`
+  }
+];
+
+export const RECURSION_GCD_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 辗转相除法：古老的智慧',
+    content: `
+### 最大公约数 (GCD)
+求两个数 a 和 b 的最大公约数。
+早在 2300 年前，欧几里得就发现了这个神级算法：
+\`gcd(a, b) = gcd(b, a % b)\`
+
+例子：gcd(48, 18)
+- 48 % 18 = 12 -> 转化为 gcd(18, 12)
+- 18 % 12 = 6  -> 转化为 gcd(12, 6)
+- 12 % 6 = 0   -> 转化为 gcd(6, 0)
+- 当第二个数为 0 时，第一个数就是答案！(6)
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：快速收敛',
+    content: `
+**实验目标**：感受对数级的收敛速度。
+
+**操作步骤**：
+1. 点击 **GCD(48, 18)**。
+2. 观察数字是如何迅速变小的。
+3. 即使是很大的数字，通常只需要几十次递归就能算出来。这也是现代加密算法的基础。
+    `
+  },
+  {
+    id: 3,
+    type: 'conclusion',
+    title: '3. 实验结论',
+    content: `
+### 为什么这么快？
+每次递归，参数从 \`(a, b)\` 变成了 \`(b, a % b)\`。
+- 如果 \`a < b\`，第一步只是交换顺序。
+- 如果 \`a >= b\`，那么 \`a % b\` 必然小于 \`a / 2\`。
+
+这意味着每经过两次递归，数字的大小至少**减半**。
+**时间复杂度：O(log n)**。这比减法模拟除法（更相减损术）要快得多。
+    `
+  },
+  {
+    id: 4,
+    type: 'code',
+    title: '4. 实战填空：一行代码',
+    content: `辗转相除法是代码最短的递归算法之一。`,
+    codeProblem: {
+      template: `int gcd(int a, int b) {
+    // 递归基：余数为 0
+    if ({{0}}) return a;
+    
+    // 递归步
+    return gcd(b, {{1}});
+}`,
+      blanks: [
+        { id: 0, question: "什么时候结束？", options: [{ label: "b == 0", value: "b == 0", isCorrect: true }, { label: "a == 0", value: "a == 0", isCorrect: false }] },
+        { id: 1, question: "新的参数", options: [{ label: "a % b", value: "a % b", isCorrect: true }, { label: "a / b", value: "a / b", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 复杂度分析',
+    content: '它为什么快？',
+    quizData: {
+      id: 1,
+      question: "欧几里得算法的时间复杂度是多少？",
+      options: ["O(a)", "O(b)", "O(log(min(a,b)))", "O(a*b)"],
+      correctAnswer: 2,
+      explanation: "每次取模，数字至少减半（近似），所以是 O(log n)。这非常快。"
+    }
+  },
+  {
+    id: 6,
+    type: 'full_code',
+    title: '6. 代码实现',
+    content: `
+### 问题描述
+输入两个正整数 a 和 b，求它们的最大公约数。
+
+### 样例
+**Input**: 48 18
+**Output**: 6
+    `,
+    codeSnippet: `int gcd(int a, int b) {
+    // 递归基：当除数 b 为 0 时，被除数 a 即为最大公约数
+    if (b == 0) return a;
+    
+    // 递归步：根据欧几里得原理，gcd(a, b) = gcd(b, a % b)
+    // 问题的规模迅速减小
+    return gcd(b, a % b);
+}`
+  }
+];
+
+export const RECURSION_STRING_REV_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 字符串反转：分而治之',
+    content: `
+### 任务
+将字符串 "HELLO" 变成 "OLLEH"。
+
+### 递归思路
+我们可以只关注**首尾两个字符**。
+1. 交换第一个和最后一个字符。
+2. 剩下的中间部分（子串），交给递归函数去处理。
+3. 当只剩 0 个或 1 个字符时，停止。
+
+例如：Reverse("HELLO")
+- 交换 H, O -> "O" + Reverse("ELL") + "H"
+- Reverse("ELL") -> 交换 E, L -> "L" + Reverse("L") + "E"
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：双指针向中心汇聚',
+    content: `
+**实验目标**：观察指针的变化。
+
+**操作步骤**：
+1. 点击 **Reverse String**。
+2. 观察高亮的两个格子（左指针 L 和右指针 R）。
+3. 它们交换内容后，分别向中间移动一步，进入下一层递归。
+    `
+  },
+  {
+    id: 3,
+    type: 'conclusion',
+    title: '3. 实验结论',
+    content: `
+### 空间换时间？
+在这个递归版本中，我们不需要创建一个新的字符串副本，而是直接修改原字符串（In-place）。
+但是，递归本身隐式地使用了 **O(N)** 的栈空间。
+
+**工程启示**：
+虽然代码看起来很优雅，但对于简单的反转，我们通常用 \`while\` 循环（迭代法）来节省这部分栈空间，实现真正的 O(1) 空间复杂度。
+    `
+  },
+  {
+    id: 4,
+    type: 'code',
+    title: '4. 实战填空：控制范围',
+    content: `我们需要两个参数 left 和 right 来标记当前处理的范围。`,
+    codeProblem: {
+      template: `void reverse(string &s, int l, int r) {
+    // 递归基：指针相遇或错过
+    if (l >= r) return;
+    
+    // 交换首尾
+    swap(s[l], s[r]);
+    
+    // 递归处理剩下的内部
+    reverse(s, {{0}}, {{1}});
+}`,
+      blanks: [
+        { id: 0, question: "左指针移动", options: [{ label: "l + 1", value: "l + 1", isCorrect: true }, { label: "l", value: "l", isCorrect: false }] },
+        { id: 1, question: "右指针移动", options: [{ label: "r - 1", value: "r - 1", isCorrect: true }, { label: "r", value: "r", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 边界思考',
+    content: '关于奇偶长度。',
+    quizData: {
+      id: 1,
+      question: "对于字符串 'ABCDE' (长度5)，递归停止时，左指针 L 和 右指针 R 的位置关系是？",
+      options: ["L < R", "L == R", "L > R", "L == R + 2"],
+      correctAnswer: 1,
+      explanation: "长度为奇数时，指针最终会重合在中间字符 ('C') 上，此时 L == R，满足终止条件 (L >= R)，停止递归。"
+    }
+  },
+  {
+    id: 6,
+    type: 'full_code',
+    title: '6. 代码实现',
+    content: `
+### 问题描述
+编写一个函数，原地反转给定的字符串。
+
+### 样例
+**Input**: "hello"
+**Output**: "olleh"
+    `,
+    codeSnippet: `void reverseString(string &s, int l, int r) {
+    // 递归基：左指针 >= 右指针，说明已交换完毕
+    if (l >= r) return;
+    
+    // 交换首尾字符
+    swap(s[l], s[r]);
+    
+    // 递归处理剩下的子串（缩小范围）
+    reverseString(s, l + 1, r - 1);
+}`
+  }
+];
+
+export const RECURSION_REVERSE_LIST_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 链表逆序输出：递归的“归”',
+    content: `
+### 难题
+单向链表 (A -> B -> C -> D) 只能从头走到尾。如果想**先输出 D，再输出 C...** 怎么办？
+普通做法可能需要把链表反转，或者用一个显式的栈。
+
+### 利用系统栈
+递归函数天然就是一个栈！
+\`void print(Node* head)\`
+1. 先递归调用 \`print(head->next)\`（去处理后面的节点）。
+2. **等它回来后**，再打印自己的值 \`cout << head->val\`。
+
+这样，最先被打印的一定是到达终点后回溯时的第一个节点（即最后一个节点）。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：回马枪',
+    content: `
+**实验目标**：理解“后序遍历”的执行时机。
+
+**操作步骤**：
+1. 点击 **Reverse Print List**。
+2. 观察黄色光标：它会一路向右冲到 Null (递)。
+3. **关键点**：注意看 **Output** 区域。数字是在光标**向左回退 (归)** 的时候才出现的！
+    `
+  },
+  {
+    id: 3,
+    type: 'conclusion',
+    title: '3. 实验结论',
+    content: `
+### 系统栈模拟显式栈
+我们并没有显式地创建一个 \`Stack<Node>\` 数据结构，而是利用了程序执行的**调用栈 (Call Stack)**。
+- 递归进入时：相当于 \`stack.push(node)\`。
+- 递归返回时：相当于 \`stack.pop()\`, 此时执行打印操作。
+
+这就是**后序遍历 (Post-order Traversal)** 的本质：先访问子节点，再访问根节点。
+    `
+  },
+  {
+    id: 4,
+    type: 'code',
+    title: '4. 实战填空：打印时机',
+    content: `代码顺序决定了是正序还是逆序。`,
+    codeProblem: {
+      template: `void reversePrint(ListNode* head) {
+    if (head == nullptr) return;
+    
+    // 1. 先去下一层
+    reversePrint(head->next);
+    
+    // 2. 回来后再打印
+    cout << {{0}} << endl;
+}`,
+      blanks: [
+        { id: 0, question: "打印谁？", options: [{ label: "head->val", value: "head->val", isCorrect: true }, { label: "head->next->val", value: "head->next->val", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 思考题',
+    content: '如果把顺序反过来？',
+    quizData: {
+      id: 1,
+      question: "如果把 `cout` 放在递归调用 `reversePrint` 之前，会发生什么？",
+      options: ["正序打印 (A->B->C)", "逆序打印 (C->B->A)", "不打印", "死循环"],
+      correctAnswer: 0,
+      explanation: "先打印再递归，就是标准的前序遍历，输出顺序和链表顺序一致。"
+    }
+  },
+  {
+    id: 6,
+    type: 'full_code',
+    title: '6. 代码实现',
+    content: `
+### 问题描述
+给定一个单链表，从尾到头打印每个节点的值。
+
+### 样例
+**Input**: 1 -> 2 -> 3 -> NULL
+**Output**: 3 2 1
+    `,
+    codeSnippet: `void reversePrint(ListNode* head) {
+    // 递归基：到达链表尾部 (NULL)
+    if (head == nullptr) return;
+    
+    // 递：先去处理下一个节点
+    reversePrint(head->next);
+    
+    // 归：从深层返回后，打印当前节点
+    // 这样最先打印的是最后一个节点
+    cout << head->val << " ";
+}`
+  }
+];
+
+export const RECURSION_FIB_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 斐波那契：兔子的繁衍',
+    content: `
+### 问题背景
+斐波那契数列 (Fibonacci Sequence) 描述了理想情况下兔子的繁衍过程：
+- 第 1 个月，有一对小兔子。
+- 第 2 个月，小兔子长大了。
+- 第 3 个月，大兔子生了一对小兔子（现有 2 对）。
+- 第 4 个月，大兔子又生了一对，原来的小兔子也长大了（现有 3 对）。
+
+### 数学定义
+\`f(n) = f(n-1) + f(n-2)\`
+即：**当前月份的兔子数 = 上个月的兔子数 + 两个月前的兔子数**。
+    `
+  },
+  {
+    id: 2,
+    type: 'theory',
+    title: '2. 递归实现的隐患',
+    content: `
+### 代码直译
+如果我们直接把公式写成代码：
+\`\`\`cpp
+int fib(int n) {
+    if (n <= 2) return 1;
+    return fib(n-1) + fib(n-2);
+}
+\`\`\`
+
+### 爆炸的调用树
+计算 \`fib(5)\` 需要计算 \`fib(4)\` 和 \`fib(3)\`。
+而计算 \`fib(4)\` **又**需要计算 \`fib(3)\` 和 \`fib(2)\`。
+**注意：\`fib(3)\` 被重复计算了！** 随着 n 增大，这种重复会呈指数级爆炸。
+    `
+  },
+  {
+    id: 3,
+    type: 'experiment',
+    title: '3. 实验：观察递归树',
+    content: `
+**实验目标**：直观感受重复计算的严重性。
+
+**操作步骤**：
+1. 点击控制台的 **Calculate Fib(5)**。
+2. 盯着屏幕上的节点。
+3. 观察有多少次黄色的光点跑到了标有 **f(3)** 或 **f(2)** 的节点上？
+
+> 思考：如果算 f(50)，这棵树会有多大？
+    `,
+    experimentConfig: { hint: "注意看右侧子树，是不是把左侧做过的事情又做了一遍？" }
+  },
+  {
+    id: 4,
+    type: 'conclusion',
+    title: '4. 实验结论',
+    content: `
+### 你看到了什么？
+在计算 f(5) 的过程中，f(3) 被计算了 2 次，f(2) 被计算了 3 次，f(1) 被计算了 5 次。
+这棵树的节点总数接近 **2^n**。
+
+### 复杂度分析
+- **时间复杂度**：O(2^n)。这是极慢的指数级算法。
+- **优化方案**：**记忆化搜索 (Memoization)**。算过一次 f(3) 后，把结果记在本子上，下次直接查，不再算。
+    `
+  },
+  {
+    id: 5,
+    type: 'code',
+    title: '5. 实战填空：递归基',
+    content: `让我们开始写代码。递归函数的第一步永远是**处理边界条件（递归基）**，否则会无限循环。`,
+    codeProblem: {
+      template: `int fib(int n) {
+    // 1. 递归基（出口）
+    if ({{0}}) {
+        return 1;
+    }
+    // 2. 递归步骤
+    return fib(n-1) + fib(n-2);
+}`,
+      blanks: [
+        { id: 0, question: "斐波那契数列的前两项是多少？", options: [{ label: "n <= 2", value: "n <= 2", isCorrect: true }, { label: "n == 0", value: "n == 0", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 6,
+    type: 'code',
+    title: '6. 实战填空：记忆化数组',
+    content: `为了避免重复计算，我们需要一个数组 \`memo\` 来记录已经算过的结果。初始化时，通常设为一个特殊值表示“未计算”。`,
+    codeProblem: {
+      template: `int memo[100]; // 记忆本
+
+void init() {
+    // 初始化 memo 数组
+    // 将所有位置设为 -1，表示“我还没算过”
+    for(int i=0; i<100; i++) {
+        memo[i] = {{0}};
+    }
+}`,
+      blanks: [
+        { id: 0, question: "用什么值表示未计算？", options: [{ label: "-1", value: "-1", isCorrect: true }, { label: "0", value: "0", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 7,
+    type: 'code',
+    title: '7. 实战填空：记忆化搜索逻辑',
+    content: `将记忆化逻辑加入递归函数。这是从 O(2^n) 优化到 O(n) 的关键一步！`,
+    codeProblem: {
+      template: `int fib(int n) {
+    if (n <= 2) return 1;
+    
+    // 1. 查备忘录：如果算过，直接返回
+    if (memo[n] != -1) {
+        return {{0}};
+    }
+    
+    // 2. 没算过：计算并记下来
+    int ans = fib(n-1) + fib(n-2);
+    {{1}} = ans;
+    
+    return ans;
+}`,
+      blanks: [
+        { id: 0, question: "查到了什么？", options: [{ label: "memo[n]", value: "memo[n]", isCorrect: true }, { label: "n", value: "n", isCorrect: false }] },
+        { id: 1, question: "把结果存在哪里？", options: [{ label: "memo[n]", value: "memo[n]", isCorrect: true }, { label: "return", value: "return", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 8,
+    type: 'quiz',
+    title: '8. 学习成果检验',
+    content: '关于复杂度的理解。',
+    quizData: {
+      id: 1,
+      question: "使用记忆化搜索优化后，计算 fib(n) 的时间复杂度是多少？",
+      options: ["O(2^n)", "O(n^2)", "O(n)", "O(log n)"],
+      correctAnswer: 2,
+      explanation: "因为每个 fib(i) 只会被计算一次（第一次遇到时），共有 n 个不同的输入，所以是 O(n)。"
+    }
+  },
+  {
+    id: 9,
+    type: 'quiz',
+    title: '9. 空间复杂度分析',
+    content: '除了时间，我们还要关心空间。',
+    quizData: {
+      id: 2,
+      question: "计算 fib(n) 时，递归调用栈的最大深度是多少？",
+      options: ["n", "2^n", "1", "log n"],
+      correctAnswer: 0,
+      explanation: "最深的调用链是 fib(n) -> fib(n-1) -> ... -> fib(1)，深度为 n。所以空间复杂度是 O(n)。"
+    }
+  },
+  {
+    id: 10,
+    type: 'quiz',
+    title: '10. 逻辑追踪',
+    content: '考察对执行顺序的理解。',
+    quizData: {
+      id: 3,
+      question: "在计算 fib(5) 的过程中，fib(4) 和 fib(3) 谁先被计算完成并返回？",
+      options: ["fib(4)", "fib(3)", "同时", "随机"],
+      correctAnswer: 1,
+      explanation: "根据代码 `return fib(n-1) + fib(n-2)`，程序会先深入左分支 `fib(n-1)`。计算 fib(5) 需先算 fib(4)，计算 fib(4) 需先算 fib(3)。最底层的 fib(3) 会最先返回。"
+    }
+  },
+  {
+    id: 11,
+    type: 'full_code',
+    title: '11. 代码实现 (记忆化搜索)',
+    content: `
+### 问题描述
+求斐波那契数列的第 n 项。要求时间复杂度为 O(n)。
+
+### 样例
+**Input**: 5
+**Output**: 5 (1, 1, 2, 3, 5)
+    `,
+    codeSnippet: `int memo[100]; // 备忘录，初始化为 -1
+
+int fib(int n) {
+    if (n <= 2) return 1;
+    
+    // 查表：如果之前算过，直接返回结果
+    if (memo[n] != -1) return memo[n];
+    
+    // 计算并记录到备忘录中
+    memo[n] = fib(n - 1) + fib(n - 2);
+    return memo[n];
+}`
+  }
+];
+
+export const RECURSION_HANOI_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 汉诺塔：婆罗门的诅咒',
+    content: `
+### 游戏规则
+有三根柱子 A、B、C。A 柱上有 N 个盘子，从小到大叠放。
+你需要把所有盘子从 A 移到 C，规则如下：
+1. 每次只能移动一个盘子。
+2. **大盘子永远不能压在小盘子上面**。
+
+传说当 64 个盘子全部移完时，世界就会毁灭。
+    `
+  },
+  {
+    id: 2,
+    type: 'theory',
+    title: '2. 宏观思维：外包策略',
+    content: `
+### 不要陷入细节
+面对 N 个盘子，我们不要去想“第1步移谁，第2步移谁”，那样脑子会炸。
+我们要**宏观地**看问题：
+
+要把 N 个盘子从 A 移到 C，只需要三步：
+1. **外包**：先把上面 N-1 个盘子，视为一个整体，从 A 移到 B（借助 C）。
+2. **搬运**：把剩下的那个最大的盘子（第 N 个），从 A 直接移到 C。
+3. **收尾**：把 B 上的那 N-1 个盘子，从 B 移到 C（借助 A）。
+
+至于那 N-1 个盘子怎么移？那是递归函数下一层该操心的事，我不管！
+    `
+  },
+  {
+    id: 3,
+    type: 'experiment',
+    title: '3. 实验：验证宏观策略',
+    content: `
+**实验目标**：观察“整体移动”的过程。
+
+**操作步骤**：
+1. 点击 **Solve Hanoi(3)**。
+2. 重点观察：最大的盘子（蓝色/黄色最底下的那个）是在什么时候移动的？
+3. 是不是在它移动之前，上面的所有小盘子都已经跑到了 B 柱（中间柱）上？
+
+> 这验证了我们的策略：先清空上方，再移动底层，最后把上方移回来。
+    `
+  },
+  {
+    id: 4,
+    type: 'conclusion',
+    title: '4. 实验结论',
+    content: `
+### 递归的魔力
+你是否发现，解决 3 个盘子的问题，中间包含了解决 2 个盘子的问题？
+解决 2 个盘子，又包含了 1 个盘子。
+
+### 移动次数
+- 1 个盘子：1 次
+- 2 个盘子：3 次
+- 3 个盘子：7 次
+- N 个盘子：**2^n - 1** 次。
+如果是 64 个盘子，需要移动 18446744073709551615 次，即便一秒移一次，也要 5800 亿年。
+    `
+  },
+  {
+    id: 5,
+    type: 'code',
+    title: '5. 实战填空：函数定义',
+    content: `我们需要定义一个函数，表示“把 n 个盘子从 from 柱 移到 to 柱，aux 柱作为辅助”。`,
+    codeProblem: {
+      template: `void hanoi(int n, char from, char aux, char to) {
+    // 1. 递归基：只有一个盘子，直接移
+    if (n == 1) {
+        cout << "Move disk 1 from " << from << " to " << to << endl;
+        return;
+    }
+    // ... 后续代码
+}`,
+      blanks: [
+        { id: 0, question: "如果 n == 1，还需要辅助柱吗？", options: [{ label: "不需要，直接从 from 到 to", value: "不需要", isCorrect: true }, { label: "需要", value: "需要", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 6,
+    type: 'code',
+    title: '6. 实战填空：第一阶段 (外包)',
+    content: `先把 n-1 个盘子移开，腾出底层的第 n 个盘子。`,
+    codeProblem: {
+      template: `    // 把 n-1 个盘子从 'from' 移到 'aux'，借助 'to'
+    hanoi(n - 1, from, {{0}}, {{1}});
+    
+    // 移动第 n 个盘子
+    cout << "Move disk " << n << " from " << from << " to " << to << endl;`,
+      blanks: [
+        { id: 0, question: "辅助柱是谁？", options: [{ label: "to", value: "to", isCorrect: true }, { label: "aux", value: "aux", isCorrect: false }] },
+        { id: 1, question: "目标柱是谁？", options: [{ label: "aux", value: "aux", isCorrect: true }, { label: "to", value: "to", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 7,
+    type: 'code',
+    title: '7. 实战填空：第三阶段 (收尾)',
+    content: `最后，把暂存在 aux 上的 n-1 个盘子移到目标柱 to 上。`,
+    codeProblem: {
+      template: `    // 把 n-1 个盘子从 'aux' 移到 'to'，借助 'from'
+    hanoi(n - 1, {{0}}, from, {{1}});
+}`,
+      blanks: [
+        { id: 0, question: "现在的起点是谁？", options: [{ label: "aux", value: "aux", isCorrect: true }, { label: "from", value: "from", isCorrect: false }] },
+        { id: 1, question: "最终终点是谁？", options: [{ label: "to", value: "to", isCorrect: true }, { label: "aux", value: "aux", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 8,
+    type: 'quiz',
+    title: '8. 理解测验',
+    content: '关于移动规则的考察。',
+    quizData: {
+      id: 1,
+      question: "在 hanoi(3, A, B, C) 的执行过程中，最大的盘子（第3号）被移动了几次？",
+      options: ["1次", "2次", "3次", "无数次"],
+      correctAnswer: 0,
+      explanation: "无论 N 是多少，最大的第 N 号盘子只在中间步骤被从起点直接移到终点 1 次。其他的移动都是在倒腾那 N-1 个小盘子。"
+    }
+  },
+  {
+    id: 9,
+    type: 'quiz',
+    title: '9. 辅助柱的角色',
+    content: '考察对参数变化的理解。',
+    quizData: {
+      id: 2,
+      question: "当我们调用 hanoi(n-1, from, to, aux) 时（第一阶段），原本的'目标柱 to'变成了什么角色？",
+      options: ["辅助柱 (Auxiliary)", "起点 (Source)", "终点 (Target)", "没用"],
+      correctAnswer: 0,
+      explanation: "我们要把盘子移到 aux 去，所以原来的 aux 是终点，而原来的 to 只能作为中转站（辅助柱）。"
+    }
+  },
+  {
+    id: 10,
+    type: 'quiz',
+    title: '10. 栈深度',
+    content: '考察空间复杂度。',
+    quizData: {
+      id: 3,
+      question: "计算 Hanoi(n) 时，递归栈的最大深度是多少？",
+      options: ["n", "2^n", "1", "n^2"],
+      correctAnswer: 0,
+      explanation: "虽然调用次数是指数级的，但递归的层数（栈的深度）只有 n 层。处理完一层就会退栈。"
+    }
+  },
+  {
+    id: 11,
+    type: 'full_code',
+    title: '11. 代码实现',
+    content: `
+### 问题描述
+打印将 n 个盘子从 'A' 柱移动到 'C' 柱的所有步骤，'B' 柱为辅助。
+
+### 样例
+**Input**: 2
+**Output**:
+Move disk 1 from A to B
+Move disk 2 from A to C
+Move disk 1 from B to C
+    `,
+    codeSnippet: `// n: 盘子数, from: 起点, aux: 辅助, to: 终点
+void hanoi(int n, char from, char aux, char to) {
+    // 递归基：只有一个盘子，直接移动到终点
+    if (n == 1) {
+        printf("Move disk 1 from %c to %c\\n", from, to);
+        return;
+    }
+    
+    // 1. 将 n-1 个盘子从 from 移到 aux (借助 to)
+    hanoi(n - 1, from, to, aux);
+    
+    // 2. 将第 n 个盘子从 from 移到 to
+    printf("Move disk %d from %c to %c\\n", n, from, to);
+    
+    // 3. 将 n-1 个盘子从 aux 移到 to (借助 from)
+    hanoi(n - 1, aux, from, to);
+}`
+  }
+];
+
+export const RECURSION_FRACTAL_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 分形树：代码生成的自然',
+    content: `
+### 什么是分形 (Fractal)？
+分形是指具有**自相似性**的几何结构。
+你看一棵树：
+- 树干分出两个树枝。
+- 每个树枝又分出两个小树枝。
+- 每个小树枝又分出两个细枝...
+
+**局部和整体长得一模一样**，只是大小不同。这简直就是为递归量身定做的！
+    `
+  },
+  {
+    id: 2,
+    type: 'theory',
+    title: '2. 绘制算法',
+    content: `
+### 递归定义
+定义函数 \`draw(x, y, length, angle)\`：
+1. 从 (x, y) 出发，沿着 angle 方向画一条长为 length 的线。
+2. 计算线段终点 (x2, y2)。
+3. **递归调用**：在 (x2, y2) 处，向左偏 30 度，画一根长为 length * 0.7 的树枝。
+4. **递归调用**：在 (x2, y2) 处，向右偏 30 度，画一根长为 length * 0.7 的树枝。
+
+### 终止条件
+当 length 小于某个阈值（比如 5像素）时，停止递归。
+    `
+  },
+  {
+    id: 3,
+    type: 'experiment',
+    title: '3. 实验：生长动画',
+    content: `
+**实验目标**：观察简单的规则如何生成复杂的图形。
+
+**操作步骤**：
+1. 点击 **Grow Fractal Tree**。
+2. 观察树的生长顺序。
+3. 注意：它是先画完一整根左侧的枝条（深入到底），还是层层推进？
+
+> 提示：这其实是一个**深度优先搜索 (DFS)** 的过程。
+    `
+  },
+  {
+    id: 4,
+    type: 'conclusion',
+    title: '4. 实验结论',
+    content: `
+### 几何级数增长
+- 第 1 层：1 根树干
+- 第 2 层：2 根树枝
+- 第 3 层：4 根树枝
+- ...
+- 第 N 层：2^(N-1) 根树枝
+
+短短几行递归代码，生成了成百上千条线段。这就是递归在图形学和生成艺术中的威力。
+    `
+  },
+  {
+    id: 5,
+    type: 'code',
+    title: '5. 实战填空：终止条件',
+    content: `防止无限递归画出原子级别的树枝。`,
+    codeProblem: {
+      template: `void drawBranch(double x, double y, double len, double angle) {
+    // 递归出口
+    if (len < {{0}}) return;
+    
+    // ... 画线逻辑
+}`,
+      blanks: [
+        { id: 0, question: "设定最小长度阈值", options: [{ label: "2.0", value: "2.0", isCorrect: true }, { label: "-10", value: "-10", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 6,
+    type: 'code',
+    title: '6. 实战填空：计算终点',
+    content: `高中三角函数知识：已知起点、长度、角度，求终点。`,
+    codeProblem: {
+      template: `    // 极坐标转换
+    double x2 = x + len * cos(angle);
+    double y2 = y - len * {{0}}; // 注意屏幕坐标系y向下为正，向上需减
+    
+    drawLine(x, y, x2, y2);`,
+      blanks: [
+        { id: 0, question: "计算 Y 轴增量", options: [{ label: "sin(angle)", value: "sin(angle)", isCorrect: true }, { label: "tan(angle)", value: "tan(angle)", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 7,
+    type: 'code',
+    title: '7. 实战填空：递归生成子树',
+    content: `生成左右两个分叉。`,
+    codeProblem: {
+      template: `    // 左分叉：长度减小，角度增加
+    drawBranch(x2, y2, len * 0.7, angle + 30);
+    
+    // 右分叉：长度减小，角度减少
+    drawBranch(x2, y2, {{0}}, {{1}});
+}`,
+      blanks: [
+        { id: 0, question: "右分叉长度", options: [{ label: "len * 0.7", value: "len * 0.7", isCorrect: true }, { label: "len", value: "len", isCorrect: false }] },
+        { id: 1, question: "右分叉角度", options: [{ label: "angle - 30", value: "angle - 30", isCorrect: true }, { label: "angle + 30", value: "angle + 30", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 8,
+    type: 'quiz',
+    title: '8. 深度理解',
+    content: '关于递归深度的影响。',
+    quizData: {
+      id: 1,
+      question: "如果我们把长度衰减系数从 0.7 改成 0.5，画出来的树会发生什么变化？",
+      options: ["树会变得更稀疏、更小", "树会变得更大", "树枝数量变多", "没有变化"],
+      correctAnswer: 0,
+      explanation: "长度衰减得更快，意味着更快达到终止阈值，递归深度变浅，树整体变小且细节减少。"
+    }
+  },
+  {
+    id: 9,
+    type: 'quiz',
+    title: '9. 分支因子',
+    content: '考察对指数增长的理解。',
+    quizData: {
+      id: 2,
+      question: "如果每个节点分叉出 3 根树枝而不是 2 根，第 5 层的树枝数量是多少？",
+      options: ["3^4 = 81", "2^4 = 16", "3^5 = 243", "15"],
+      correctAnswer: 0,
+      explanation: "第 1 层 1 个，第 k 层有 3^(k-1) 个。第 5 层是 3^4 = 81。"
+    }
+  },
+  {
+    id: 10,
+    type: 'quiz',
+    title: '10. 几何特性',
+    content: '自相似性的本质。',
+    quizData: {
+      id: 3,
+      question: "分形树的每一根树枝，如果单独截取下来放大，看起来像什么？",
+      options: ["像一棵完整的树", "像一条直线", "像一个圆", "毫无规律"],
+      correctAnswer: 0,
+      explanation: "这就是“自相似性”：局部包含整体的形状信息。"
+    }
+  },
+  {
+    id: 11,
+    type: 'full_code',
+    title: '11. 代码实现',
+    content: `
+### 问题描述
+模拟二叉分形树的绘制逻辑。假设有函数 drawLine(x1,y1,x2,y2)。
+
+### 参数
+x, y: 起点坐标; len: 树枝长度; angle: 角度。
+    `,
+    codeSnippet: `void drawTree(double x, double y, double len, double angle) {
+    // 递归基：树枝太短，停止生长
+    if (len < 2) return;
+    
+    // 计算终点坐标 (极坐标转换)
+    double x2 = x + len * cos(angle);
+    double y2 = y - len * sin(angle);
+    
+    // 画当前树枝
+    drawLine(x, y, x2, y2);
+    
+    // 递归画左分叉 (长度减小，角度偏转 +30度)
+    drawTree(x2, y2, len * 0.7, angle + 30);
+    
+    // 递归画右分叉 (长度减小，角度偏转 -30度)
+    drawTree(x2, y2, len * 0.7, angle - 30);
+}`
+  }
+];
+
+export const RECURSION_PERM_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 全排列：排排坐',
+    content: `
+### 问题描述
+给定 N 个不重复的数字（例如 1, 2, 3），请列出它们所有的排列方式。
+例如 N=3 时：
+- [1, 2, 3], [1, 3, 2]
+- [2, 1, 3], [2, 3, 1]
+- [3, 1, 2], [3, 2, 1]
+
+### 递归思维：填坑法
+我们可以把这个问题想象成 **“填空”**。
+有 N 个空位 \`[ _ _ _ ]\`，我们需要按顺序决定每个空位填哪个数字。
+1. 第 1 个空位：可以填 1、2 或 3。
+2. 第 2 个空位：从未被选用的数字里挑一个。
+3. ...
+4. 当所有空位都填满时，我们就找到了一个解！
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：填空过程',
+    content: `
+**实验目标**：理解“选择-递归-回溯”的过程。
+
+**操作步骤**：
+1. 点击 **Start Permutations (3)**。
+2. 观察下方的盒子 \`[ ] [ ] [ ]\` 和数字池。
+3. **关键观察**：
+   - 当程序填入 \`1\` 后，它会继续去填第二个格子。
+   - 当填满 \`[1, 2, 3]\` 后，它会把 \`3\` 拿出来（回溯），然后再把 \`2\` 拿出来，尝试别的组合。
+   - 注意看递归栈，它记录了当前我们在第几层（第几个格子）。
+    `
+  },
+  {
+    id: 3,
+    type: 'conclusion',
+    title: '3. 核心概念：回溯 (Backtracking)',
+    content: `
+### 为什么要“拿出来”？
+这就是**回溯**的精髓。
+当我们探索完 \`[1, 2, ...]\` 的所有可能性后，为了探索 \`[1, 3, ...]\`，我们必须把占用的 \`2\` 释放出来，**恢复现场**，就好像我们从来没选过它一样。
+
+如果不恢复现场，\`used[2]\` 一直是 true，后面的递归就永远用不了 2 了。
+    `
+  },
+  {
+    id: 4,
+    type: 'code',
+    title: '4. 实战填空：状态标记',
+    content: `我们需要一个数组 \`used\` 来记录哪些数字已经被选了。`,
+    codeProblem: {
+      template: `bool used[10]; // 记录数字是否被使用
+int path[10];  // 记录当前排列
+
+void dfs(int index, int n) {
+    if (index == n) {
+        print(path);
+        return;
+    }
+    
+    for (int i = 1; i <= n; i++) {
+        // 如果数字 i 还没被用过
+        if ({{0}}) {
+            path[index] = i;
+            used[i] = true; // 标记占用
+            
+            dfs(index + 1, n);
+            
+            // 回溯：恢复现场
+            used[i] = {{1}}; 
+        }
+    }
+}`,
+      blanks: [
+        { id: 0, question: "检查条件", options: [{ label: "!used[i]", value: "!used[i]", isCorrect: true }, { label: "used[i]", value: "used[i]", isCorrect: false }] },
+        { id: 1, question: "回溯操作", options: [{ label: "false", value: "false", isCorrect: true }, { label: "true", value: "true", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 复杂度爆炸',
+    content: '关于全排列的数量级。',
+    quizData: {
+      id: 1,
+      question: "N 个数字的全排列一共有多少种？（时间复杂度）",
+      options: ["N^2", "2^N", "N!", "N^N"],
+      correctAnswer: 2,
+      explanation: "第1位有N种选法，第2位有N-1种... 总数是 N*(N-1)*...*1 = N!。增长速度极快，N=13时计算机通常就跑不动了。"
+    }
+  },
+  {
+    id: 6,
+    type: 'quiz',
+    title: '6. 递归深度',
+    content: '关于栈的消耗。',
+    quizData: {
+      id: 2,
+      question: "生成 N 个数的全排列，递归栈的最大深度是多少？",
+      options: ["N!", "N", "N^2", "1"],
+      correctAnswer: 1,
+      explanation: "虽然解的数量是 N!，但我们是一层层填空的，最多填 N 个空，所以栈深是 N。"
+    }
+  },
+  {
+    id: 7,
+    type: 'full_code',
+    title: '7. 代码实现',
+    content: `
+### 问题描述
+生成数字 1 到 n 的所有全排列。
+
+### 样例
+**Input**: 3
+**Output**: [1,2,3], [1,3,2], [2,1,3] ...
+    `,
+    codeSnippet: `void permute(vector<int>& nums, vector<int>& track, vector<bool>& used) {
+    // 递归基：路径长度等于数组长度，说明找到一个排列
+    if (track.size() == nums.size()) {
+        print(track);
+        return;
+    }
+    
+    for (int i = 0; i < nums.size(); ++i) {
+        if (used[i]) continue; // 剪枝：已使用的数字跳过
+        
+        // 做选择
+        track.push_back(nums[i]);
+        used[i] = true;
+        
+        // 进入下一层
+        permute(nums, track, used);
+        
+        // 撤销选择 (回溯)：恢复到选择前的状态
+        track.pop_back();
+        used[i] = false;
+    }
+}`
+  }
+];
+
+export const RECURSION_SUBSET_LECTURE: LectureStep[] = [
+  {
+    id: 1,
+    type: 'theory',
+    title: '1. 子集生成：选与不选',
+    content: `
+### 问题描述
+给定一个集合，比如 \`{A, B, C}\`，请列出它所有的子集。
+结果应包含：空集, {A}, {B}, {C}, {A,B}, {A,C}, {B,C}, {A,B,C}。
+
+### 递归思维：二叉决策树
+对于集合中的每一个元素，我们只有两个选择：
+1. **选它**：把它加入当前子集。
+2. **不选它**：直接跳过。
+
+无论选不选，我们都处理下一个元素。当处理完所有元素时，就是一个子集。
+    `
+  },
+  {
+    id: 2,
+    type: 'experiment',
+    title: '2. 实验：二叉分叉',
+    content: `
+**实验目标**：观察“选/不选”的决策过程。
+
+**操作步骤**：
+1. 点击 **Generate Subsets (3)**。
+2. 观察下方的元素列表 \`[1, 2, 3]\`。
+3. **绿色勾**表示“选”，**红色叉**表示“不选”。
+4. 每一层递归都在处理一个数字。注意看它是如何遍历完所有“选1”的情况，再回头去遍历“不选1”的情况的。
+    `
+  },
+  {
+    id: 3,
+    type: 'code',
+    title: '3. 实战填空：递归逻辑',
+    content: `我们需要一个 index 指针来表示当前正在考虑第几个数字。`,
+    codeProblem: {
+      template: `int arr[] = {1, 2, 3};
+vector<int> subset;
+
+void dfs(int index) {
+    // 递归基：所有数字都考虑完了
+    if (index == 3) {
+        print(subset);
+        return;
+    }
+    
+    // 决策 1：选当前数字 arr[index]
+    subset.push_back(arr[index]);
+    dfs(index + 1);
+    {{0}}; // 回溯：把刚刚加进去的弹出来！
+    
+    // 决策 2：不选当前数字
+    dfs(index + 1);
+}`,
+      blanks: [
+        { id: 0, question: "恢复现场", options: [{ label: "subset.pop_back()", value: "subset.pop_back()", isCorrect: true }, { label: "subset.clear()", value: "subset.clear()", isCorrect: false }] }
+      ]
+    }
+  },
+  {
+    id: 4,
+    type: 'quiz',
+    title: '4. 子集数量',
+    content: '关于子集的数学知识。',
+    quizData: {
+      id: 1,
+      question: "包含 N 个元素的集合，一共有多少个子集？",
+      options: ["N^2", "N!", "2^N", "N"],
+      correctAnswer: 2,
+      explanation: "每个元素都有“选”或“不选”2种可能，N个元素就是 2*2*...*2 = 2^N。"
+    }
+  },
+  {
+    id: 5,
+    type: 'quiz',
+    title: '5. 另一种思路',
+    content: '二进制枚举。',
+    quizData: {
+      id: 2,
+      question: "除了递归，我们还可以用什么方法快速生成子集？",
+      options: ["二进制位运算", "排序", "二分查找", "并查集"],
+      correctAnswer: 0,
+      explanation: "可以用 0 到 2^N-1 的整数代表子集，二进制第 i 位为 1 表示选中第 i 个元素。这种方法叫二进制枚举 (Bitmask)。"
+    }
+  },
+  {
+    id: 6,
+    type: 'full_code',
+    title: '6. 代码实现',
+    content: `
+### 问题描述
+生成数组 nums 的所有子集。
+
+### 样例
+**Input**: [1,2,3]
+**Output**: [], [1], [2], [3], [1,2], [1,3], [2,3], [1,2,3]
+    `,
+    codeSnippet: `void subsets(vector<int>& nums, int start, vector<int>& track) {
+    // 每一个节点的状态都是一个合法的子集，直接输出/收集
+    print(track);
+    
+    for (int i = start; i < nums.size(); i++) {
+        // 做选择：加入 nums[i]
+        track.push_back(nums[i]);
+        
+        // 递归：从 i+1 开始选择，避免重复和回头
+        subsets(nums, i + 1, track);
+        
+        // 撤销选择 (回溯)
+        track.pop_back();
+    }
+}`
+  }
+];
+
+
+// ================= SEGMENT TREE =================
 export const SEGMENT_TREE_LECTURE: LectureStep[] = [
   {
     id: 1,
@@ -427,8 +1679,7 @@ DFS 的搜索空间往往是指数级的。如果不加控制，程序会跑几�
 ];
 
 
-// ================= BFS & EXISTING =================
-// (Include all existing BFS lectures here to avoid overwrite issues)
+// ================= BFS MASTER CLASS =================
 
 export const BFS_BASIC_LECTURE: LectureStep[] = [
   {
@@ -1132,191 +2383,46 @@ while(!q.empty()) {
   }
 ];
 
-// ================= STRING ALGORITHMS =================
+// ================= STRING MODULE =================
+
+export const AC_AUTOMATON_LECTURE: LectureStep[] = [
+  { id: 1, type: 'theory', title: 'AC自动机', content: 'AC自动机是多模式匹配算法。' }
+];
 
 export const KMP_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'KMP：不再回头的匹配',
-    content: `
-### 暴力匹配的痛点
-普通字符串匹配 (Brute Force) 当遇到不匹配字符时，指针 \`i\` 会回溯。
-例如 \`AAAAAB\` 匹配 \`AAAB\`，每次都要重头来。
-
-### Next 数组 (前缀表)
-KMP 的核心是利用已匹配部分的信息。
-\`next[i]\` 表示子串 \`p[0...i]\` 的 **最长相等前后缀长度**。
-如果不匹配，我们不需要回溯主串指针，只需要查表看看模式串指针应该跳到哪里。
-    `
-  },
-  {
-    id: 2,
-    type: 'code',
-    title: '实战：Next 数组构建',
-    content: `构造 Next 数组是 KMP 的精髓。`,
-    codeProblem: {
-      template: `for (int i = 1, j = 0; i < n; i++) {
-    while (j > 0 && p[i] != p[j]) {
-        j = {{0}}; // 回退 j
-    }
-    if (p[i] == p[j]) {
-        j++;
-    }
-    next[i] = j;
-}`,
-      blanks: [
-        { id: 0, question: "j 回退到哪里？", options: [{ label: "next[j-1]", value: "next[j-1]", isCorrect: true }, { label: "0", value: "0", isCorrect: false }] }
-      ]
-    }
-  }
+  { id: 1, type: 'theory', title: 'KMP算法', content: 'KMP算法用于字符串匹配。' }
 ];
 
 export const MANACHER_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Manacher：回文串之王',
-    content: `
-### 奇偶性的尴尬
-找最长回文子串，暴力法是以每个点为中心向外扩。
-但 \`aba\` (奇数) 和 \`abba\` (偶数) 的中心不同，处理很麻烦。
-
-### 马拉车变换
-Manacher 第一步：在字符间插入 \`#\`。
-\`aba\` -> \`^#a#b#a#$\`
-\`abba\` -> \`^#a#b#b#a#$\`
-所有回文串都变成了奇数长度！利用回文的对称性，我们可以复用之前计算过的半径，达到 O(N)。
-    `
-  }
-];
-
-export const AC_AUTOMATON_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'AC 自动机：KMP 上树',
-    content: `
-### 多模式匹配
-KMP 只能查一个词。如果要在文章里查 1000 个敏感词，跑 1000 遍 KMP 太慢了。
-
-### Trie + Fail 指针
-AC 自动机建立在 Trie 树之上。
-我们为 Trie 的每个节点加一个 **Fail 指针**。
-它的含义和 KMP 的 Next 数组一样：**“这里匹配失败了，我该跳到哪个节点继续尝试？”**
-这个跳转节点，一定是当前已匹配后缀的最长前缀。
-    `
-  }
-];
-
-// ================= DATA STRUCTURES =================
-
-export const TRIE_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Trie：高效前缀树',
-    content: `Trie 树利用字符串的公共前缀来减少查询时间，最大限度地减少无谓的字符串比较。`,
-  },
-  {
-    id: 2,
-    type: 'experiment',
-    title: '实验：插入与查询',
-    content: `观察 Trie 树的结构。点击“算法演示”页签可以更详细地操作。`,
-    experimentConfig: { hint: "尝试在脑海中模拟 'apple' 和 'app' 的路径。" }
-  }
-];
-
-export const HASH_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Hash：映射的魔力',
-    content: `哈希表通过哈希函数 Hash(key) 将键映射到数组下标，实现 O(1) 查找。`,
-  }
-];
-
-export const UNION_FIND_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '并查集：连通性管理',
-    content: `并查集维护不相交集合。核心操作：Find（找老大）和 Union（合并）。路径压缩将树高度压扁至近乎 O(1)。`,
-  }
+  { id: 1, type: 'theory', title: 'Manacher算法', content: 'Manacher算法用于查找最长回文子串。' }
 ];
 
 export const BALANCED_TREE_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Treap：随机的艺术',
-    content: `
-### Tree + Heap
-Treap 给每个节点一个随机的 Priority。
-- 也就是：BST 的性质（Key 左小右大） + 堆的性质（Priority 父大子小）。
-- 依靠随机性，Treap 几乎不可能退化成链，保持平衡 O(log N)。
-    `
-  }
+    { id: 1, type: 'theory', title: '平衡树', content: '平衡树维持树的高度平衡以保证操作效率。' }
 ];
 
 // ================= GRAPH ALGORITHMS =================
 
 export const MST_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '最小生成树：修路省钱',
-    content: `
-### 连通且成本最低
-要在 N 个城市间修路，让所有城市连通，且总造价最低。这就是 MST。
-- **Kruskal 算法**：贪心。把所有边按权值排序，从小到大选。如果这条边连接的两个点还未连通（用并查集判断），就选它。
-- **Prim 算法**：类似 Dijkstra。从一个点开始，每次把离当前连通块最近的点吸纳进来。
-    `
-  }
+    { id: 1, type: 'theory', title: '最小生成树', content: '最小生成树包含图中所有顶点，且边权和最小。' }
 ];
 
 export const SHORTEST_PATH_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Dijkstra：导航原理',
-    content: `
-### 松弛操作 (Relax)
-Dijkstra 维护 \`dist[]\` 数组。
-每次从优先队列中取出距离起点最近的未访问点 \`u\`。
-遍历 \`u\` 的邻居 \`v\`，如果 \`dist[u] + w < dist[v]\`，说明找到了一条更近的路，更新 \`dist[v]\`。
-**注意**：Dijkstra 不能处理负权边。
-    `
-  }
+    { id: 1, type: 'theory', title: '最短路径', content: '最短路径问题旨在寻找两点间路径权重最小的路径。' }
 ];
 
 export const TARJAN_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: 'Tarjan：强连通分量',
-    content: `
-### 环的缩影
-在有向图中，如果两个点能互相到达，它们就在同一个强连通分量 (SCC) 中。
-Tarjan 算法利用 DFS 序的时间戳 \`dfn\` 和 追溯值 \`low\`。
-如果 \`dfn[u] == low[u]\`，说明 \`u\` 是这个 SCC 的根，它下面的所有节点构成一个强连通分量。
-    `
-  }
+    { id: 1, type: 'theory', title: 'Tarjan算法', content: 'Tarjan算法用于求强连通分量。' }
 ];
 
 export const DIFF_CONSTRAINTS_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '差分约束：不等式组',
-    content: `
-### 转化为最短路
-形如 \`x - y <= k\` 的不等式组。
-移项得 \`x <= y + k\`。
-这看起来是不是很像最短路的松弛条件 \`dist[v] <= dist[u] + w\`？
-我们可以建立一条从 y 到 x，权值为 k 的边。跑一遍最短路（SPFA/Bellman-Ford）即可求出一组解。
-    `
-  }
+    { id: 1, type: 'theory', title: '差分约束', content: '差分约束系统可以转化为最短路问题。' }
+];
+
+// ================= MISC ALGORITHMS =================
+
+export const SWEEP_LINE_LECTURE: LectureStep[] = [
+    { id: 1, type: 'theory', title: '扫描线', content: '扫描线算法常用于几何问题。' }
 ];
 
 // ================= TREE ALGORITHMS =================
@@ -1325,118 +2431,62 @@ export const TREE_DIAMETER_LECTURE: LectureStep[] = [
   {
     id: 1,
     type: 'theory',
-    title: '树的直径：最远的两人',
+    title: '1. 树的直径',
     content: `
 ### 定义
-树上最远的两个节点之间的路径长度。
+树中距离最远的两个节点之间的路径称为**树的直径**。
+这条路径的长度就是直径的大小。
 
-### 两次 BFS 法
-1. 随便选一点 P，做一次 BFS 找到离 P 最远的点 Q。
-2. 从 Q 出发，再做一次 BFS，找到离 Q 最远的点 R。
-3. Q 到 R 的路径就是直径。
+### 求解方法
+1. **两次 BFS/DFS**：
+   - 第一次：从任意点 u 出发，找到离它最远的点 x。
+   - 第二次：从 x 出发，找到离 x 最远的点 y。
+   - x 到 y 的路径就是直径。
+2. **树形 DP**：
+   - 对于每个节点，计算以它为根的子树中，向下延伸的最长链和次长链。
+   - 直径经过该节点时，长度 = 最长链 + 次长链。
     `
   },
   {
     id: 2,
     type: 'experiment',
-    title: '实验：两次 BFS',
+    title: '2. 实验：寻找最远节点',
     content: `
-**任务**：
-1. 点击控制台的 **Start BFS** 按钮两次。
-2. 第一次可能会停在一个边缘节点。
-3. 第二次从那个边缘节点出发，一定能走到树的另一端。
+**实验步骤**：
+1. 观察右侧的树。
+2. 在控制台中点击 **1. 从 Node 1 开始 BFS**。观察找到了哪个最远点？(通常是直径的一个端点)
+3. 假设找到了点 U，再点击 **2. 从 Node U 开始 BFS**。
+4. 这次找到的最远点 V，到 U 的距离就是直径。
     `
   }
 ];
 
 export const TREE_CENTROID_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '树的重心：平衡点',
-    content: `
-### 定义
-找到一个点，如果把这个点删掉，剩下的最大连通块（子树）的大小最小。
-重心通常用于点分治算法，能保证递归层数最少 (log N)。
-    `
-  },
-  {
-    id: 2,
-    type: 'experiment',
-    title: '实验：寻找重心',
-    content: `
-尝试移除不同的节点，观察最大子连通块的大小。
-**任务**：
-在控制台输入节点 ID，点击 **计算最大连通块**。
-找到那个让数值最小的节点。
-    `
-  }
+    { id: 1, type: 'theory', title: '树的重心', content: '删除该点后，最大连通块的节点数最小。' }
 ];
 
 export const TREE_CENTER_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '树的中心',
-    content: `
-### 定义
-树的中心是到树中其他节点的最远距离最小的节点。
-它通常位于树的直径的中点附近。
-    `
-  }
+    { id: 1, type: 'theory', title: '树的中心', content: '树中距离所有节点最大距离最小的节点。' }
 ];
 
 export const TREE_DP_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '树形 DP：没有上司的舞会',
-    content: `
-### 状态设计
-经典问题：选了父节点就不能选子节点，求最大权值。
-\`dp[u][0]\`：不选 u，子节点可选可不选。
-\`dp[u][1]\`：选 u，子节点绝对不能选。
-    `
-  },
-  {
-    id: 2,
-    type: 'experiment',
-    title: '实验：状态转移',
-    content: `
-点击 **执行状态转移**。
-观察 DP 值是如何从叶子节点一步步汇聚到根节点的。
-    `
-  }
+    { id: 1, type: 'theory', title: '树形DP', content: '在树结构上进行的动态规划。' }
 ];
 
 export const TREE_KNAPSACK_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '树上背包',
-    content: `
-### 泛化物品
-在树上选 M 个点，必须连通（依赖父节点），求最大权值。
-这就是树上分组背包问题。
-\`dp[u][k]\` 表示以 u 为根的子树选 k 个点的最大价值。
-需要合并子节点的背包。
-    `
-  }
+    { id: 1, type: 'theory', title: '树上背包', content: '树形依赖背包问题。' }
 ];
 
-// ================= ALGORITHMS =================
+// ================= BASIC DATA STRUCTURES =================
 
-export const SWEEP_LINE_LECTURE: LectureStep[] = [
-  {
-    id: 1,
-    type: 'theory',
-    title: '扫描线：矩形面积并',
-    content: `
-### 想象一根线
-求平面上一堆矩形的覆盖总面积。
-想象一根竖直线从左扫到右。
-我们需要维护扫描线被矩形覆盖的长度。
-这通常结合 **线段树** 来实现。
-    `
-  }
+export const TRIE_LECTURE: LectureStep[] = [
+    { id: 1, type: 'theory', title: '字典树', content: '用于处理字符串前缀匹配的数据结构。' }
+];
+
+export const HASH_LECTURE: LectureStep[] = [
+    { id: 1, type: 'theory', title: '哈希表', content: '通过哈希函数映射键值对的数据结构。' }
+];
+
+export const UNION_FIND_LECTURE: LectureStep[] = [
+    { id: 1, type: 'theory', title: '并查集', content: '用于处理不交集合并及查询的数据结构。' }
 ];

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone } from 'lucide-react';
+import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone, Repeat, List, ListTree, RefreshCcw, CaseSensitive, Binary, Calculator } from 'lucide-react';
 import Visualizer from './components/Visualizer';
 import StorySection from './components/StorySection';
 import QuizSection from './components/QuizSection';
@@ -14,6 +14,22 @@ type Tab = 'story' | 'visualizer' | 'code' | 'quiz' | 'guided' | 'practice' | 'l
 
 // Navigation Structure
 const CATEGORIES: { id: Category; label: string; icon: any; topics: { id: Topic; label: string }[] }[] = [
+  {
+    id: 'recursion_module',
+    label: '递归函数 (Recursion)',
+    icon: Repeat,
+    topics: [
+      { id: 'recursion_factorial', label: '阶乘 (Factorial)' },
+      { id: 'recursion_fib', label: '斐波那契 (Call Tree)' },
+      { id: 'recursion_gcd', label: '辗转相除法 (GCD)' },
+      { id: 'recursion_string_rev', label: '字符串反转 (String)' },
+      { id: 'recursion_reverse_list', label: '链表逆序输出 (List)' },
+      { id: 'recursion_hanoi', label: '汉诺塔 (Hanoi)' },
+      { id: 'recursion_fractal', label: '分形树 (Fractal)' },
+      { id: 'recursion_perm', label: '全排列 (Permutations)' },
+      { id: 'recursion_subset', label: '子集生成 (Subsets)' }
+    ]
+  },
   {
     id: 'dfs_module',
     label: '深度优先搜索 (DFS)',
@@ -109,7 +125,7 @@ const App: React.FC = () => {
   const [currentTopic, setCurrentTopic] = useState<Topic>('segment_tree');
   const [currentLevel, setCurrentLevel] = useState<CourseLevel>('basic');
   const [activeTab, setActiveTab] = useState<Tab>('story');
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'dfs_module': true, 'bfs_module': false});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'recursion_module': true, 'dfs_module': false});
   
   // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>('slate');
