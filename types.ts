@@ -1,20 +1,53 @@
 
+
 export type CourseLevel = 'basic' | 'advanced' | 'expert';
 
 export type Category = 
-  | 'seg_module' | 'trie_module' | 'hash_module' | 'uf_module' // New Top Level Modules
+  | 'seg_module' | 'trie_module' | 'hash_module' | 'uf_module' 
+  | 'dp_linear_module' | 'dp_knapsack_module' | 'dp_interval_module' | 'dp_digit_module' | 'dp_tree_module'
+  | 'dp_state_module' // Added State Compression DP
   | 'data_structure' | 'string' | 'graph' | 'tree' | 'algorithm' | 'bfs_module' | 'dfs_module' | 'recursion_module';
 
 export type Theme = 'slate' | 'light' | 'black' | 'navy';
 
 export type Topic = 
-  // Data Structure Specific Applications (New)
+  // Data Structure Specific Applications
   | 'seg_basic' | 'seg_lazy' | 'seg_rmq' | 'seg_min'
   | 'trie_basic' | 'trie_count' | 'trie_xor'
   | 'hash_basic' | 'hash_collision' | 'hash_rolling'
   | 'uf_basic' | 'uf_path' | 'uf_enemy'
   
-  // Legacy Data Structure (kept for type safety in props, though mapped internally)
+  // Linear DP Applications
+  | 'dp_lis' | 'dp_max_subarray' | 'dp_robber' | 'dp_lcs' | 'dp_edit_dist' | 'dp_stairs' | 'dp_grid_path' | 'dp_coin'
+
+  // Knapsack DP Applications
+  | 'dp_knapsack_01' | 'dp_knapsack_complete' | 'dp_knapsack_multi' | 'dp_knapsack_mixed' 
+  | 'dp_knapsack_2d' | 'dp_knapsack_group' | 'dp_knapsack_depend' | 'dp_knapsack_count'
+  | 'dp_knapsack_record' | 'dp_knapsack_feasibility' | 'dp_knapsack_val' | 'dp_knapsack_init'
+
+  // Interval DP Applications
+  | 'dp_interval_merge' | 'dp_interval_matrix' | 'dp_interval_palindrome' | 'dp_interval_remove'
+  | 'dp_interval_color' | 'dp_interval_split' | 'dp_interval_count' | 'dp_interval_complex'
+  | 'dp_interval_circle' | 'dp_interval_opt' | 'dp_interval_sol'
+
+  // Digit DP Applications
+  | 'dp_digit_count' | 'dp_digit_constraint' | 'dp_digit_sum' | 'dp_digit_div' 
+  | 'dp_digit_base' | 'dp_digit_prod' | 'dp_digit_palindrome' | 'dp_digit_kth'
+  | 'dp_digit_minmax' | 'dp_digit_complex'
+
+  // Tree DP Applications
+  | 'dp_tree_independent' | 'dp_tree_vertex_cover' | 'dp_tree_dominating' 
+  | 'dp_tree_diameter' | 'dp_tree_centroid' | 'dp_tree_knapsack' 
+  | 'dp_tree_reroot' | 'dp_tree_coloring' | 'dp_tree_path' 
+  | 'dp_tree_cycle' | 'dp_tree_virtual' | 'dp_tree_matching'
+  | 'dp_tree_components' | 'dp_tree_game' | 'dp_tree_sol'
+
+  // State Compression DP (New)
+  | 'dp_state_chess' | 'dp_state_tsp' | 'dp_state_cover' | 'dp_state_perm' 
+  | 'dp_state_resource' | 'dp_state_plug' | 'dp_state_subset' 
+  | 'dp_state_graph' | 'dp_state_bit' | 'dp_state_stage'
+
+  // Legacy Data Structure
   | 'segment_tree' | 'trie' | 'hash' | 'union_find' | 'balanced_tree'
   
   // String
@@ -67,6 +100,7 @@ export interface GraphEdge {
   weight: number;
   active?: boolean; // For visualization highlighting
   directed?: boolean;
+  label?: string; // For edge labels (e.g. chosen digit)
 }
 
 // Grid Cell for Flood Fill
@@ -109,6 +143,14 @@ export interface LogStep {
   factState?: { n: number, equation: string };
   stringState?: { chars: string[], left: number, right: number, swapped: boolean };
 
+  // Custom payload for DP
+  dpState?: {
+      dp1D?: (number|string)[];
+      dp2D?: (number|string)[][];
+      activeIndices?: number[]; // [i] for 1D, [i, j] for 2D
+      compareIndices?: number[]; // indices being compared against
+  };
+
   // Update specific tree node values during animation
   treeUpdates?: { id: number, value: number | string }[];
 }
@@ -135,7 +177,7 @@ export interface LectureStep {
     allowedActions?: string[]; 
     hint?: string;
   };
-  quizData?: QuizQuestion;
+  quizData?: QuizQuestion[]; // CHANGED: Now supports multiple questions
   codeProblem?: {
     template: string;
     blanks: { id: number; question: string; options: { label: string; value: string; isCorrect: boolean }[]; }[];

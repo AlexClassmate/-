@@ -1,7 +1,6 @@
 
-// ... existing imports ...
 import React, { useState, useEffect } from 'react';
-import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone, Repeat, List, ListTree, RefreshCcw, CaseSensitive, Binary, Calculator, Key } from 'lucide-react';
+import { Network, BookOpen, Code, Trophy, Activity, Terminal, Layers, Box, ChevronRight, TrendingUp, Cpu, GitMerge, Hash, GitGraph, Zap, School, Search, MoveHorizontal, GitBranch, Share2, Grid, Map, Database, Radio, Palette, Milestone, Repeat, List, ListTree, RefreshCcw, CaseSensitive, Binary, Calculator, Key, Table, ShoppingBag, Group, Calculator as CalculatorIcon } from 'lucide-react';
 import Visualizer from './components/Visualizer';
 import StorySection from './components/StorySection';
 import QuizSection from './components/QuizSection';
@@ -13,8 +12,116 @@ import { CourseLevel, Topic, Category, Theme } from './types';
 
 type Tab = 'story' | 'visualizer' | 'code' | 'quiz' | 'guided' | 'practice' | 'lecture';
 
-// ... (Keep existing CATEGORIES constant unchanged) ...
+// Navigation Structure - Redesigned
 const CATEGORIES: { id: Category; label: string; icon: any; topics: { id: Topic; label: string }[] }[] = [
+  {
+    id: 'dp_state_module',
+    label: '状压 DP (State)',
+    icon: Binary,
+    topics: [
+      { id: 'dp_state_chess', label: '1. 棋盘放置 (玉米田)' },
+      { id: 'dp_state_tsp', label: '2. 旅行商问题 (TSP)' },
+      { id: 'dp_state_cover', label: '3. 集合覆盖问题' },
+      { id: 'dp_state_perm', label: '4. 排列生成与计数' },
+      { id: 'dp_state_resource', label: '5. 资源分配/指派' },
+      { id: 'dp_state_plug', label: '6. 插头 DP (连通性)' },
+      { id: 'dp_state_subset', label: '7. 子集和 (SOS DP)' },
+      { id: 'dp_state_graph', label: '8. 图论状压 (最大团)' },
+      { id: 'dp_state_bit', label: '9. 位运算模拟' },
+      { id: 'dp_state_stage', label: '10. 多阶段状态压缩' }
+    ]
+  },
+  {
+    id: 'dp_tree_module',
+    label: '树形 DP (Tree)',
+    icon: GitBranch,
+    topics: [
+      { id: 'dp_tree_independent', label: '1. 树的最大独立集 (没有上司的舞会)' },
+      { id: 'dp_tree_vertex_cover', label: '2. 树的最小点覆盖 (战略游戏)' },
+      { id: 'dp_tree_dominating', label: '3. 树的最小支配集 (消防局)' },
+      { id: 'dp_tree_diameter', label: '4. 树的直径 (最长路径)' },
+      { id: 'dp_tree_centroid', label: '5. 树的重心 (平衡点)' },
+      { id: 'dp_tree_knapsack', label: '6. 树上背包 (选课)' },
+      { id: 'dp_tree_reroot', label: '7. 换根 DP (全方位扫描)' },
+      { id: 'dp_tree_coloring', label: '8. 树的染色问题' },
+      { id: 'dp_tree_path', label: '9. 树上路径统计 (点分治前置)' },
+      { id: 'dp_tree_cycle', label: '10. 基环树 DP (骑士)' },
+      { id: 'dp_tree_virtual', label: '11. 虚树 DP (关键点)' },
+      { id: 'dp_tree_matching', label: '12. 树的匹配问题' },
+      { id: 'dp_tree_components', label: '13. 树的连通块计数' },
+      { id: 'dp_tree_game', label: '14. 树上游戏/博弈' },
+      { id: 'dp_tree_sol', label: '15. 树形 DP 求方案' }
+    ]
+  },
+  {
+    id: 'dp_digit_module',
+    label: '数位 DP (Digit)',
+    icon: CalculatorIcon,
+    topics: [
+      { id: 'dp_digit_count', label: '1. 数字出现次数统计' },
+      { id: 'dp_digit_constraint', label: '2. 包含/不包含特定数字' },
+      { id: 'dp_digit_sum', label: '3. 数字和问题' },
+      { id: 'dp_digit_div', label: '4. 整除性问题' },
+      { id: 'dp_digit_base', label: '5. 二进制/多进制问题' },
+      { id: 'dp_digit_prod', label: '6. 数字乘积问题' },
+      { id: 'dp_digit_palindrome', label: '7. 回文数相关问题' },
+      { id: 'dp_digit_kth', label: '8. 第 K 小满足条件的数' },
+      { id: 'dp_digit_minmax', label: '9. 区间最值/Windy数' },
+      { id: 'dp_digit_complex', label: '10. 复杂条件组合' }
+    ]
+  },
+  {
+    id: 'dp_interval_module',
+    label: '区间 DP (Interval)',
+    icon: Group,
+    topics: [
+      { id: 'dp_interval_merge', label: '1. 区间合并 (石子合并)' },
+      { id: 'dp_interval_matrix', label: '2. 矩阵连乘/取数' },
+      { id: 'dp_interval_palindrome', label: '3. 括号匹配/回文' },
+      { id: 'dp_interval_remove', label: '4. 区间消除 (祖玛)' },
+      { id: 'dp_interval_color', label: '5. 区间染色 (涂色)' },
+      { id: 'dp_interval_split', label: '6. 区间分割 (切木棍)' },
+      { id: 'dp_interval_count', label: '7. 区间计数 (凸多边形)' },
+      { id: 'dp_interval_complex', label: '8. 复杂状态 (三维)' },
+      { id: 'dp_interval_circle', label: '9. 环形问题 (断环成链)' },
+      { id: 'dp_interval_opt', label: '10. 四边形不等式优化' },
+      { id: 'dp_interval_sol', label: '11. 记录与输出方案' },
+    ]
+  },
+  {
+    id: 'dp_knapsack_module',
+    label: '背包 DP (Knapsack)',
+    icon: ShoppingBag,
+    topics: [
+      { id: 'dp_knapsack_01', label: '1. 0/1 背包 (基础)' },
+      { id: 'dp_knapsack_complete', label: '2. 完全背包 (无限)' },
+      { id: 'dp_knapsack_multi', label: '3. 多重背包 (有限)' },
+      { id: 'dp_knapsack_mixed', label: '4. 混合背包' },
+      { id: 'dp_knapsack_2d', label: '5. 二维费用背包' },
+      { id: 'dp_knapsack_group', label: '6. 分组背包' },
+      { id: 'dp_knapsack_depend', label: '7. 有依赖的背包' },
+      { id: 'dp_knapsack_count', label: '8. 方案计数' },
+      { id: 'dp_knapsack_record', label: '9. 记录最优方案' },
+      { id: 'dp_knapsack_feasibility', label: '10. 可行性问题' },
+      { id: 'dp_knapsack_val', label: '11. 求具体价值' },
+      { id: 'dp_knapsack_init', label: '12. 恰好装满 vs 不超' }
+    ]
+  },
+  {
+    id: 'dp_linear_module',
+    label: '线性 DP (Linear DP)',
+    icon: Table,
+    topics: [
+      { id: 'dp_lis', label: '1. 最长递增子序列 (LIS)' },
+      { id: 'dp_max_subarray', label: '2. 最大子数组和 (Kadane)' },
+      { id: 'dp_robber', label: '3. 打家劫舍 (House Robber)' },
+      { id: 'dp_lcs', label: '4. 最长公共子序列 (LCS)' },
+      { id: 'dp_edit_dist', label: '5. 编辑距离 (Edit Distance)' },
+      { id: 'dp_stairs', label: '6. 爬楼梯 (Counting)' },
+      { id: 'dp_grid_path', label: '7. 路径规划 (Grid Paths)' },
+      { id: 'dp_coin', label: '8. 资源分配 (Coin Change)' }
+    ]
+  },
   {
     id: 'seg_module',
     label: '线段树 (Segment Tree)',
@@ -154,7 +261,7 @@ const THEME_OPTIONS: { id: Theme; label: string; color: string }[] = [
 const App: React.FC = () => {
   const [currentTopic, setCurrentTopic] = useState<Topic>('seg_basic'); 
   const [activeTab, setActiveTab] = useState<Tab>('story');
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'seg_module': true});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({'dp_tree_module': true, 'dp_state_module': true});
   
   // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>('slate');
@@ -231,9 +338,8 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (isLectureOnly(realTopic)) {
-        // CHANGED: Pass currentTopic AND level to LectureMode
         if (activeTab === 'lecture') return <LectureMode topic={currentTopic} level={level} theme={currentTheme} />;
-        if (activeTab === 'visualizer') return <Visualizer level={level} topic={realTopic} theme={currentTheme} />;
+        if (activeTab === 'visualizer') return <Visualizer level={level} topic={currentTopic} theme={currentTheme} />;
         return <LectureMode topic={currentTopic} level={level} theme={currentTheme} />;
     }
 
@@ -322,7 +428,9 @@ const App: React.FC = () => {
                                    <button 
                                      onClick={() => { 
                                          setCurrentTopic(t.id); 
-                                         if(currentTopic !== t.id) {
+                                         // Auto switch to Lecture Mode for modern topics
+                                         if(t.id.startsWith('dp_')) setActiveTab('lecture');
+                                         else if(currentTopic !== t.id) {
                                             const context = mapTopicToContext(t.id);
                                             if (t.id === 'seg_min') setActiveTab('lecture');
                                             else if(isLectureOnly(context.realTopic)) setActiveTab('lecture');
@@ -359,7 +467,7 @@ const App: React.FC = () => {
           
           {/* Footer Info */}
           <div className="p-4 border-t border-gray-800 text-[10px] text-gray-500 text-center">
-              v2.5.0 - Interactive Learning
+              v3.0.0 - State Compression DP
           </div>
         </aside>
 
@@ -370,7 +478,7 @@ const App: React.FC = () => {
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                    {getCurrentLabel()}
                 </h2>
-                {!isLectureOnly(realTopic) && realTopic !== 'seg_min' && (
+                {!isLectureOnly(realTopic) && realTopic !== 'seg_min' && !realTopic.startsWith('dp_') && (
                     <span className={`text-xs px-2 py-0.5 rounded ml-1 border ${level === 'basic' ? 'border-green-800 text-green-500 bg-green-900/20' : level === 'advanced' ? 'border-yellow-800 text-yellow-500 bg-yellow-900/20' : 'border-purple-800 text-purple-500 bg-purple-900/20'}`}>
                         {level === 'basic' ? 'Basic Concepts' : level === 'advanced' ? 'Advanced Techniques' : 'Expert Applications'}
                     </span>
